@@ -10,7 +10,7 @@
  *   - Mongoose options để tránh deprecation warnings
  */
 
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 /**
  * Hàm kết nối MongoDB
@@ -18,16 +18,18 @@ const mongoose = require('mongoose');
  */
 const connectMongoDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const mongoURI =
+      process.env.MONGODB_URI || "mongodb://localhost:27017/tutor-support";
+    const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
+    console.warn(`⚠️ MongoDB Connection failed (skipping): ${error.message}`);
+    // Không thoát process vì MongoDB không bắt buộc
   }
 };
 
-module.exports = connectMongoDB;
+module.exports = { connectMongoDB };

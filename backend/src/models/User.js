@@ -1,17 +1,20 @@
 /**
  * File: User.js
- * Mục đích: Model User cho MongoDB
+ * Mục đích: Model User cho SQL Server
  * Vai trò:
- *   - Định nghĩa schema và validation cho collection users
+ *   - Định nghĩa model Sequelize cho bảng User
  *   - Lưu trữ thông tin người dùng (student, tutor, admin)
  * Lưu ý:
- *   - Password được select: false (không trả về mặc định)
- *   - Email phải unique và lowercase
- *   - Cần hash password trước khi lưu (chưa implement)
- *   - Swagger schema được định nghĩa cho API docs
+ *   - Password được hash tự động với bcrypt
+ *   - Email phải unique và validate format
+ *   - Method comparePassword để xác thực
+ *   - toJSON loại bỏ password khi serialize
  */
 
-const mongoose = require('mongoose');
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../config/sqlserver");
+const bcrypt = require("bcrypt");
+const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -52,26 +55,26 @@ const userSchema = new mongoose.Schema(
   {
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: [true, "Email is required"],
       unique: true,
       lowercase: true,
       trim: true,
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: [true, "Password is required"],
       minlength: 6,
       select: false, // Không trả về password khi query
     },
     name: {
       type: String,
-      required: [true, 'Name is required'],
+      required: [true, "Name is required"],
       trim: true,
     },
     role: {
       type: String,
-      enum: ['student', 'tutor', 'admin'],
-      default: 'student',
+      enum: ["student", "tutor", "admin"],
+      default: "student",
     },
     avatar: {
       type: String,
@@ -87,4 +90,4 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model("User", userSchema);
