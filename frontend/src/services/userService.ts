@@ -12,36 +12,33 @@
 
 import { apiClient } from './api';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  avatar?: string;
-}
+import { UserAccount } from '@/types';
 
 export const userService = {
   // Lấy danh sách tất cả users
   getAll: async () => {
-    const response = await apiClient.get<{ success: boolean; data: User[] }>('/users');
+    const response = await apiClient.get<{ success: boolean; data: UserAccount[] }>('/users');
     return response.data.data;
   },
 
   // Lấy thông tin user theo ID
   getById: async (id: string) => {
-    const response = await apiClient.get<{ success: boolean; data: User }>(`/users/${id}`);
+    const response = await apiClient.get<{ success: boolean; data: UserAccount }>(`/users/${id}`);
     return response.data.data;
   },
 
   // Tạo user mới
-  create: async (userData: Partial<User>) => {
-    const response = await apiClient.post<{ success: boolean; data: User }>('/users', userData);
+  create: async (userData: Partial<UserAccount>) => {
+    const response = await apiClient.post<{ success: boolean; data: UserAccount }>(
+      '/users',
+      userData
+    );
     return response.data.data;
   },
 
   // Cập nhật thông tin user
-  update: async (id: string, userData: Partial<User>) => {
-    const response = await apiClient.put<{ success: boolean; data: User }>(
+  update: async (id: string, userData: Partial<UserAccount>) => {
+    const response = await apiClient.put<{ success: boolean; data: UserAccount }>(
       `/users/${id}`,
       userData
     );

@@ -1,14 +1,6 @@
-/**
- * File: authController.js
- * Mục đích: Xử lý authentication (đăng nhập, đăng ký, JWT)
- * Vai trò:
- *   - Login/Register với SQL Server
- *   - Tạo và verify JWT tokens
- *   - Xác thực người dùng
- */
-
-const User = require("../models/UserSQL");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const UserAccount = require("../models/UserSQL");
 
 /**
  * Generate JWT token
@@ -24,11 +16,7 @@ const generateToken = (userId) => {
  */
 const login = async (req, res) => {
   try {
-    // Debug: log incoming body
-    console.log(">>> authController.login - req.body:", req.body);
     const { email, password } = req.body;
-
-    // Validate input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -36,54 +24,48 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user by email (include password for comparison)
-    const user = await User.findOne({
+    // Tìm user theo email
+    const user = await UserAccount.findOne({
       where: { email: email.toLowerCase() },
-      attributes: { include: ["password"] }, // Include password field
     });
 
+    console.log("🔍 [Login] User found:", !!user);
+    if (user) {
+      console.log(
+        "🔍 [Login] Status:",
+        user.status,
+        "Verified:",
+        user.is_verified
+      );
+      console.log("🔍 [Login] Password hash exists:", !!user.password_hash);
+    }
+
     if (!user) {
-      console.log("🔍 authController.login: User not found for email:", email);
       return res.status(401).json({
         success: false,
         message: "Email hoặc password không đúng",
       });
     }
 
-    // Check password - so sánh plaintext với plaintext
-    // Nếu password trong DB là bcrypt hash, dùng: await user.comparePassword(password)
-    // Nếu password trong DB là plaintext, dùng: user.password === password
-    console.log("🔐 Checking password...");
-    console.log("   - Password from frontend (plaintext):", password);
-    console.log(
-      "   - Password from DB:",
-      user.password.substring(0, 20) + "..."
-    );
-
-    let isPasswordValid = false;
-
-    // Thử plaintext comparison trước
-    if (user.password === password) {
-      isPasswordValid = true;
-      console.log("✅ Password valid (plaintext match)");
-    } else {
-      // Thử bcrypt comparison nếu password có dạng hash
-      try {
-        const bcrypt = require("bcryptjs");
-        isPasswordValid = await bcrypt.compare(password, user.password);
-        if (isPasswordValid) {
-          console.log("✅ Password valid (bcrypt match)");
-        }
-      } catch (bcryptError) {
-        console.log("❌ Bcrypt comparison failed:", bcryptError.message);
-      }
+    if (!user.status) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản đã bị khóa",
+      });
     }
 
+    if (!user.is_verified) {
+      return res.status(403).json({
+        success: false,
+        message: "Vui lòng xác thực email",
+      });
+    }
+
+    // So sánh password với hash
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    console.log("🔍 [Login] Password valid:", isPasswordValid);
+
     if (!isPasswordValid) {
-      console.log(
-        "🔐 authController.login: Invalid password for email:",
-        email
-      );
       return res.status(401).json({
         success: false,
         message: "Email hoặc password không đúng",
@@ -91,11 +73,11 @@ const login = async (req, res) => {
     }
 
     // Generate token
-    const token = generateToken(user.id);
+    const token = generateToken(user.user_id);
 
-    // Remove password from response
+    // Remove password_hash from response
     const userResponse = user.toJSON();
-    delete userResponse.password; // Xóa password trước khi response
+    delete userResponse.password_hash;
 
     res.status(200).json({
       success: true,
@@ -106,7 +88,6 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",
@@ -123,22 +104,22 @@ const register = async (req, res) => {
     const {
       email,
       password,
-      fullName,
-      role = "student",
+      name,
+      role = "user",
       phone,
       dateOfBirth,
+      locationDetail,
     } = req.body;
 
-    // Validate required fields
-    if (!email || !password || !fullName) {
+    if (!email || !password || !name) {
       return res.status(400).json({
         success: false,
-        message: "Email, password và fullName là bắt buộc",
+        message: "Email, password và name là bắt buộc",
       });
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({
+    const existingUser = await UserAccount.findOne({
       where: { email: email.toLowerCase() },
     });
 
@@ -149,21 +130,25 @@ const register = async (req, res) => {
       });
     }
 
-    // Create new user (password will be auto-hashed by model hook)
-    const newUser = await User.create({
+    // Tạo user mới (password sẽ được hash bởi model hook)
+    const newUser = await UserAccount.create({
       email: email.toLowerCase(),
-      password,
-      fullName,
+      password_hash: password,
+      name,
       role,
       phone,
       dateOfBirth,
+      locationDetail,
+      status: true,
+      is_verified: false,
     });
 
     // Generate token
-    const token = generateToken(newUser.id);
+    const token = generateToken(newUser.user_id);
 
-    // Remove password from response
+    // Remove password_hash from response
     const userResponse = newUser.toJSON();
+    delete userResponse.password_hash;
 
     res.status(201).json({
       success: true,
@@ -174,11 +159,27 @@ const register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Register error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+/**
+ * Logout user (frontend sẽ xóa token)
+ */
+const logout = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: "Đăng xuất thành công",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server",
     });
   }
 };
@@ -189,36 +190,26 @@ const register = async (req, res) => {
 const verifyToken = async (req, res, next) => {
   try {
     let token = req.headers.authorization;
-
     if (!token) {
       return res.status(401).json({
         success: false,
         message: "Token không được cung cấp",
       });
     }
-
-    // Remove Bearer prefix if exists
     if (token.startsWith("Bearer ")) {
       token = token.slice(7);
     }
-
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Get user from database
-    const user = await User.findByPk(decoded.userId);
+    const user = await UserAccount.findByPk(decoded.userId);
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Token không hợp lệ",
       });
     }
-
-    // Attach user to request
     req.user = user;
     next();
   } catch (error) {
-    console.error("Token verification error:", error);
     return res.status(401).json({
       success: false,
       message: "Token không hợp lệ",
@@ -232,14 +223,13 @@ const verifyToken = async (req, res, next) => {
 const getProfile = async (req, res) => {
   try {
     const user = req.user.toJSON();
-
+    delete user.password_hash;
     res.status(200).json({
       success: true,
       message: "Lấy thông tin user thành công !!",
       data: { user },
     });
   } catch (error) {
-    console.error("Get profile error:", error);
     res.status(500).json({
       success: false,
       message: "Lỗi server",
@@ -254,13 +244,13 @@ const getProfile = async (req, res) => {
 const verifySocketToken = async (token) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.userId);
-
+    const user = await UserAccount.findByPk(decoded.userId);
     if (!user) {
       throw new Error("User not found");
     }
-
-    return user.toJSON();
+    const userObj = user.toJSON();
+    delete userObj.password_hash;
+    return userObj;
   } catch (error) {
     throw new Error("Invalid token");
   }
@@ -272,4 +262,5 @@ module.exports = {
   verifyToken,
   getProfile,
   verifySocketToken,
+  logout,
 };

@@ -15,13 +15,13 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/sqlserver");
 const bcrypt = require("bcryptjs");
 
-const User = sequelize.define(
-  "User",
+const UserAccount = sequelize.define(
+  "UserAccount",
   {
-    id: {
-      type: DataTypes.INTEGER,
+    user_id: {
+      type: DataTypes.UUID,
       primaryKey: true,
-      autoIncrement: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     email: {
       type: DataTypes.STRING(255),
@@ -31,38 +31,51 @@ const User = sequelize.define(
         isEmail: true,
       },
     },
-    password: {
+    password_hash: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    name: {
       type: DataTypes.STRING(255),
       allowNull: false,
-    },
-    fullName: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-    dateOfBirth: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
-    },
-    address_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
-    role: {
-      type: DataTypes.ENUM("student", "tutor", "admin"),
-      allowNull: false,
-      defaultValue: "student",
     },
     phone: {
       type: DataTypes.STRING(20),
       allowNull: true,
     },
+    role: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "user",
+    },
+    status: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
+    is_verified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    dateOfBirth: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+
     locationDetail: {
-      type: DataTypes.TEXT,
+      type: DataTypes.STRING(255),
       allowNull: true,
     },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
+    },
+    address_id: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "Ward",
+        key: "id",
+      },
     },
     updated_at: {
       type: DataTypes.DATE,
@@ -70,17 +83,17 @@ const User = sequelize.define(
     },
   },
   {
-    tableName: "User",
+    tableName: "UserAccount",
     timestamps: false, // We're managing timestamps manually
     hooks: {
       beforeCreate: async (user) => {
-        if (user.password) {
-          user.password = await bcrypt.hash(user.password, 12);
+        if (user.password_hash) {
+          user.password_hash = await bcrypt.hash(user.password_hash, 12);
         }
       },
       beforeUpdate: async (user) => {
-        if (user.changed("password")) {
-          user.password = await bcrypt.hash(user.password, 12);
+        if (user.changed("password_hash")) {
+          user.password_hash = await bcrypt.hash(user.password_hash, 12);
         }
       },
     },
@@ -88,14 +101,14 @@ const User = sequelize.define(
 );
 
 // Instance methods
-User.prototype.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+UserAccount.prototype.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password_hash);
 };
 
-User.prototype.toJSON = function () {
+UserAccount.prototype.toJSON = function () {
   const values = Object.assign({}, this.get());
-  delete values.password; // Never return password in JSON
+  delete values.password_hash; // Never return password in JSON
   return values;
 };
 
-module.exports = User;
+module.exports = UserAccount;

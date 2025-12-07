@@ -13,13 +13,13 @@ const locationController = require("../controllers/locationController");
 // Route để lấy danh sách tỉnh/thành phố
 router.get("/provinces", locationController.getProvinces);
 
-// Route để lấy danh sách phường/xã theo tỉnh
-router.get(
-  "/provinces/:provinceId/wards",
-  locationController.getWardsByProvince
-);
+// Route để lấy danh sách quận/huyện theo tỉnh
+router.get("/districts/:provinceId", locationController.getDistricts);
 
-// Route để lấy tất cả phường/xã (với province_name)
+// Route để lấy danh sách phường/xã theo quận/huyện
+router.get("/wards/:districtId", locationController.getWards);
+
+// Route để lấy tất cả phường/xã (với district_id)
 router.get("/wards", locationController.getAllWards);
 
 module.exports = router;

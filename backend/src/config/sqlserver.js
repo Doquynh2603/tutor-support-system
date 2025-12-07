@@ -15,7 +15,7 @@ function env(key) {
 
 // SQL Server configuration
 const cfg = {
-  database: env("MSSQL_DATABASE") || "tutor_support_system",
+  database: env("MSSQL_DATABASE") || "tutorsupportdb",
   username: env("MSSQL_USER") || "sa",
   password: env("MSSQL_PASSWORD") || "12345",
   host: env("MSSQL_HOST") || "localhost",
@@ -42,6 +42,7 @@ const options = {
       enableArithAbort: true,
       requestTimeout: 30000,
       connectionTimeout: 30000,
+      charset: "UTF-8",
     },
   },
   pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },

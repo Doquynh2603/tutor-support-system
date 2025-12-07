@@ -6,9 +6,7 @@
 
 const jwt = require("jsonwebtoken");
 const User = require("../models/UserSQL");
-
-console.log("🔐 [protect.js] User model imported:", typeof User);
-console.log("🔐 [protect.js] User.findByPk exists?", typeof User.findByPk);
+const UserAccount = require("../models/UserSQL");
 
 const protect = async (req, res, next) => {
   try {
@@ -35,7 +33,7 @@ const protect = async (req, res, next) => {
 
     // Get user from database
     console.log("🔐 [protect middleware] Looking up user ID:", decoded.userId);
-    const user = await User.findByPk(decoded.userId);
+    const user = await UserAccount.findByPk(decoded.userId);
     console.log(
       "🔐 [protect middleware] User found:",
       user ? user.email : "NOT FOUND"
@@ -53,8 +51,17 @@ const protect = async (req, res, next) => {
     }
 
     // Attach user to request
-    req.user = user;
-    console.log(`🔐 [protect middleware] User authenticated: ${user.email}`);
+    req.user = {
+      user_id: user.user_id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      is_verified: user.is_verified,
+    };
+    console.log(
+      `🔐 [protect middleware] User authenticated: ${user.email} (role: ${user.role})`
+    );
     return next();
   } catch (error) {
     console.error("🔐 Token verification error:", error.message);

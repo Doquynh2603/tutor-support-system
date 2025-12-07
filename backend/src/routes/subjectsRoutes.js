@@ -9,6 +9,6 @@ const { protect } = require("../middlewares/protect");
 const { getSubjects } = require("../controllers/subjectsController");
 
 // Lấy danh sách môn học
-router.get("/", protect, getSubjects);
+router.get("/", getSubjects);
 
 module.exports = router;

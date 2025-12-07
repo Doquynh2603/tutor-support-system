@@ -49,124 +49,12 @@ try {
 const authRoutes = require("./routes/auth");
 // Import other routes
 let userRoutes = require("./routes/users");
-let tutorRoutes = require("./routes/tutorRoutes");
-let tutorClassRoutes = require("./routes/tutorClassRoutes");
+let tutorRoutes = require("./routes/Tutor/tutorRoutes");
 let locationRoutes = require("./routes/locationRoutes");
-// const studentRoutes = require("./routes/studentRoutes");
-// const classRoutes = require("./routes/classRoutes");
-// const applicationRoutes = require("./routes/applicationRoutes");
-// const messageRoutes = require("./routes/messageRoutes");
-
-try {
-  userRoutes = require("./routes/users");
-} catch (error) {
-  console.warn("⚠️ User routes not found, using mock");
-  userRoutes = require("express").Router();
-  userRoutes.get("/", (req, res) =>
-    res.json({ message: "User routes not implemented" })
-  );
-}
-
-try {
-  tutorRoutes = require("./routes/tutorRoutes");
-  console.log("✅ Tutor routes loaded successfully");
-} catch (error) {
-  console.warn("⚠️ Tutor routes error:", error.message);
-  tutorRoutes = require("express").Router();
-  tutorRoutes.get("/profile", (req, res) =>
-    res.json({
-      success: true,
-      message: "Mock tutor profile",
-      data: { id: 1, name: "Mock Tutor" },
-    })
-  );
-}
-
-try {
-  tutorClassRoutes = require("./routes/tutorClassRoutes");
-  console.log("✅ Tutor class routes loaded successfully");
-} catch (error) {
-  console.warn("⚠️ Tutor class routes error:", error.message);
-  tutorClassRoutes = require("express").Router();
-  tutorClassRoutes.get("/", (req, res) =>
-    res.json({
-      success: true,
-      message: "Mock tutor classes",
-      data: [],
-    })
-  );
-}
-
-try {
-  locationRoutes = require("./routes/locationRoutes");
-  console.log("✅ Location routes loaded successfully");
-} catch (error) {
-  console.warn("⚠️ Location routes error:", error.message);
-  locationRoutes = require("express").Router();
-  locationRoutes.get("/provinces", (req, res) =>
-    res.json({
-      success: true,
-      message: "Mock locations",
-      data: { provinces: [], wards: [] },
-    })
-  );
-}
-
-// try {
-//   studentRoutes = require("./routes/studentRoutes");
-// } catch (error) {
-//   console.warn("⚠️ Student routes not found, using mock");
-//   studentRoutes = require("express").Router();
-//   studentRoutes.get("/", (req, res) =>
-//     res.json({ message: "Student routes not implemented" })
-//   );
-// }
-
-// try {
-//   classRoutes = require("./routes/classRoutes");
-// } catch (error) {
-//   console.warn("⚠️ Class routes not found, using mock");
-//   classRoutes = require("express").Router();
-//   classRoutes.get("/", (req, res) =>
-//     res.json({ message: "Class routes not implemented" })
-//   );
-// }
-
-// try {
-//   applicationRoutes = require("./routes/applicationRoutes");
-// } catch (error) {
-//   console.warn("⚠️ Application routes not found, using mock");
-//   applicationRoutes = require("express").Router();
-//   applicationRoutes.get("/", (req, res) =>
-//     res.json({ message: "Application routes not implemented" })
-//   );
-// }
-
-// try {
-//   messageRoutes = require("./routes/messageRoutes");
-// } catch (error) {
-//   console.warn("⚠️ Message routes not found, using mock");
-//   messageRoutes = require("express").Router();
-//   messageRoutes.get("/", (req, res) =>
-//     res.json({ message: "Message routes not implemented" })
-//   );
-// }
-
-// Import middleware (with fallbacks)
-let protect, errorHandler;
-
-try {
-  const { mockAuth } = require("./middlewares/auth");
-  protect = mockAuth;
-  console.log("✅ Auth middleware loaded successfully");
-} catch (error) {
-  console.warn("⚠️ Auth middleware not found, using mock");
-  protect = (req, res, next) => {
-    req.user = { id: 1, role: "tutor" }; // Mock user
-    next();
-  };
-}
-
+let studentRoutes = require("./routes/Student/studentRouter");
+let applicationRoutes = require("./routes/Tutor/applicationRoutes");
+let searchRoutes = require("./routes/Tutor/searchRoutes");
+let subjectsRoutes = require("./routes/subjectsRoutes");
 try {
   errorHandler = require("./middlewares/errorHandler");
 } catch (error) {
@@ -408,14 +296,14 @@ app.get("/api", (req, res) => {
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/tutor/profile", tutorRoutes); // ✅ Tutor profile routes
-app.use("/api/tutor/classes", tutorClassRoutes); // ✅ Tutor classes routes
-app.use("/api/locations", locationRoutes); // ✅ Location routes (provinces & wards)
+// app.use("/api/tutor/profile", tutorRoutes); // ✅ Tutor profile routes
 app.use("/api/tutor", tutorRoutes); // ✅ Tutor profile management routes
 app.use("/api/locations", locationRoutes); // ✅ Location routes (provinces & wards)
-// app.use("/api/student", studentRoutes);
+app.use("/api/search", searchRoutes); // ✅ Search classes routes
+app.use("/api/subjects", subjectsRoutes); // ✅ Subjects routes
+app.use("/api/student", studentRoutes);
 // app.use("/api/classes", classRoutes);
-// app.use("/api/applications", applicationRoutes);
+app.use("/api/applications", applicationRoutes);
 // app.use("/api/messages", messageRoutes);
 
 // API documentation route (if using Swagger)

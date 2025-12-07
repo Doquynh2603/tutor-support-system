@@ -24,10 +24,12 @@ const errorHandler = require("./middlewares/errorHandler");
 // Import routes
 const userRoutes = require("./routes/users");
 const sessionRoutes = require("./routes/sessions");
-const tutorRoutes = require("./routes/tutorRoutes");
-const searchRoutes = require("./routes/searchRoutes");
+const tutorRoutes = require("./routes/Tutor/tutorClassRoutes");
 const locationRoutes = require("./routes/locationRoutes");
-const applicationRoutes = require("./routes/applicationRoutes");
+const searchRoutes = require("./routes/Tutor/searchRoutes");
+const subjectsRoutes = require("./routes/subjectsRoutes");
+const applicationRoutes = require("./routes/Tutor/applicationRoutes");
+const studentRoutes = require("./routes/Student/studentRoutes");
 const app = express();
 
 // Security & Performance Middlewares
@@ -59,9 +61,12 @@ app.get("/health", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/tutor", tutorRoutes);
-app.use("/api/search", searchRoutes);
 app.use("/api/locations", locationRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/subjects", subjectsRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/student", studentRoutes);
+console.log("✅ All routes mounted!");
 // 404 Handler - Route không tồn tại
 app.use((req, res) => {
   res.status(404).json({

@@ -30,55 +30,70 @@ exports.getProvinces = async (req, res) => {
 };
 
 /**
- * Lấy danh sách phường/xã theo tỉnh
+ * Lấy danh sách quận/huyện theo tỉnh
  */
-exports.getWardsByProvince = async (req, res) => {
+
+exports.getDistricts = async (req, res) => {
+  const { provinceId } = req.params;
   try {
-    const { provinceId } = req.params;
-    console.log(`📍 [getWardsByProvince] Request for province: ${provinceId}`);
+    console.log(`📍 [getDistricts] Request for province: ${provinceId}`);
+    const districts = await locationModel.getDistricts(provinceId);
+    res.status(200).json({
+      success: true,
+      data: districts,
+      message: `Lấy danh sách quận huyện của tỉnh có id ${provinceId} thành công`,
+    });
+  } catch (error) {
+    console.error("❌ [getDistricts] Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi khi lấy danh sách quận/huyện",
+    });
+  }
+};
+/**
+ * Lấy danh sách phường/xã theo quận/huyện
+ */
+exports.getWards = async (req, res) => {
+  try {
+    const { districtId } = req.params;
+    console.log(`📍 [getWards] Request for district: ${districtId}`);
 
-    if (!provinceId) {
-      return res.status(400).json({
-        success: false,
-        message: "provinceId là bắt buộc",
-      });
-    }
-
-    const wards = await locationModel.getWardsByProvince(provinceId);
+    const wards = await locationModel.getWards(districtId);
 
     res.status(200).json({
       success: true,
       data: wards,
-      message: "Lấy danh sách huyện/quận thành công",
+      message: "Lấy danh sách phường/xã thành công",
     });
   } catch (error) {
-    console.error("❌ [getWardsByProvince] Error:", error.message);
+    console.error("❌ [getWards] Error:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message || "Lỗi khi lấy danh sách huyện/quận",
+      message: error.message || "Lỗi khi lấy danh sách phường/xã",
     });
   }
 };
 
 /**
- * Lấy danh sách tất cả phường/xã (với province_name)
+ * Lấy tất cả phường/xã
  */
 exports.getAllWards = async (req, res) => {
   try {
-    console.log("📍 [getAllWards] Fetching all wards...");
+    console.log("📍 [getAllWards] Request received");
 
     const wards = await locationModel.getAllWards();
 
     res.status(200).json({
       success: true,
       data: wards,
-      message: "Lấy danh sách tất cả huyện/quận thành công",
+      message: "Lấy tất cả phường/xã thành công",
     });
   } catch (error) {
     console.error("❌ [getAllWards] Error:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message || "Lỗi khi lấy danh sách phường/xã",
+      message: error.message || "Lỗi khi lấy tất cả phường/xã",
     });
   }
 };

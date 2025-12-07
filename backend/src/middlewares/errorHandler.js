@@ -4,20 +4,22 @@
  * Vai trò:
  *   - Xử lý tất cả errors được throw trong app
  *   - Format error response thống nhất
- * Lưu ý:
- *   - Phải đặt cuối cùng trong middleware chain (sau routes)
- *   - Stack trace chỉ hiện ở development mode
- *   - Có thể customize error response tùy loại error
  */
 
 const errorHandler = (err, req, res, next) => {
   console.error(err.stack);
 
-  res.status(err.statusCode || 500).json({
+  let statusCode = err.statusCode || 500;
+  let message = err.message || "Lỗi server";
+
+  if (statusCode === 403) {
+    message = "Bạn không có quyền truy cập tài nguyên này";
+  }
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Server Error',
-    // Chỉ show stack trace ở development
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    message: message,
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
 

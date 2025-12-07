@@ -15,8 +15,8 @@ exports.getSubjects = async (req, res) => {
     console.log("📚 [getSubjects] Fetching all subjects...");
 
     const query = `
-      SELECT id, name
-      FROM Subject
+      SELECT subject_id, name
+      FROM Subjects
       ORDER BY name ASC
     `;
 
@@ -25,7 +25,7 @@ exports.getSubjects = async (req, res) => {
     });
 
     console.log(`✅ [getSubjects] Found ${subjects.length} subjects`);
-
+    console.log("📋 Subjects data:", subjects); // ✅ Thêm dòng này để debug
     res.status(200).json({
       success: true,
       data: subjects,
@@ -33,6 +33,7 @@ exports.getSubjects = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ [getSubjects] Error:", error.message);
+    console.error("❌ Full Error:", error); // ✅ Thêm dòng này để xem full error
     res.status(500).json({
       success: false,
       message: error.message || "Lỗi khi lấy danh sách môn học",
