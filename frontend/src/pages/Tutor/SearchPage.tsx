@@ -1,47 +1,25 @@
-import { useState, useEffect, ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
-import {
-  fetchAllRecruitingClasses,
-  filterClasses,
-  resetFilters,
-  selectFilteredClasses,
-  selectClassesLoading,
-  selectClassesError,
-} from '../../store/slices/classesSlice';
 import { useProvinces } from '../../hooks/useProvinces';
 import { useSubjects } from '../../hooks/useSubjects';
-import DevNavigation from '../../components/DevNavigation';
-import { AppDispatch } from '../../store';
-interface Province {
-  id: string | number;
-  name: string;
-}
-interface Subject {
-  id: string | number;
-  name: string;
-}
+import { useSearchClasses } from '@/hooks/useTutorClasses';
+
+import { Subject, Province } from '@/types';
 
 interface Filters {
   province_id: string;
   subject_id: string;
-  gradeLevel: string;
-  educationLevel: string;
+  classLevel: string;
   minRate: number;
   maxRate: number;
 }
+interface SearchPageProps {
+  onTabChange?: (tab: string) => void;
+}
 
-export default function SearchPage() {
-  const dispatch = useDispatch<AppDispatch>();
-  const navigate = useNavigate();
-
-  // Redux store - classes
-  const classesLoading = useSelector(selectClassesLoading) as boolean;
-  const classesError = useSelector(selectClassesError) as string | null;
-
+export default function SearchPage({ onTabChange }: SearchPageProps) {
   // React Query - provinces & subjects
   const { data: provinces = [], isLoading: provincesLoading } = useProvinces(true);
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects(true);
@@ -49,54 +27,79 @@ export default function SearchPage() {
   const [localFilters, setLocalFilters] = useState<Filters>({
     province_id: '',
     subject_id: '',
-    gradeLevel: '',
-    educationLevel: '',
+    classLevel: '',
     minRate: 0,
     maxRate: 999999,
   });
 
-  const filteredClasses = useSelector(selectFilteredClasses);
+  // ✅ Memoize filters để tránh re-query liên tục
+  const memoizedFilters = useMemo(
+    () => ({
+      province_id: localFilters.province_id,
+      subject_id: localFilters.subject_id,
+      classLevel: localFilters.classLevel,
+      minRate: localFilters.minRate,
+      maxRate: localFilters.maxRate,
+    }),
+    [
+      localFilters.province_id,
+      localFilters.subject_id,
+      localFilters.classLevel,
+      localFilters.minRate,
+      localFilters.maxRate,
+    ]
+  );
 
-  useEffect(() => {
-    dispatch(fetchAllRecruitingClasses());
-  }, [dispatch]);
+  // ✅ DÙNG: Hook useSearchClasses với memoized filters
+  const {
+    data: classes = [],
+    isLoading: classesLoading,
+    error: classesError,
+  } = useSearchClasses(memoizedFilters);
 
-  const handleFilterChange = (e: ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const newFilters = { ...localFilters, [name]: value };
-    setLocalFilters(newFilters);
+  const handleFilterChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+      const { name, value } = e.target;
+      let parsedValue: string | number = value;
+      if (name.includes('Rate')) {
+        parsedValue = parseFloat(value) || 0;
+      }
+      setLocalFilters((prev) => ({ ...prev, [name]: parsedValue }));
+    },
+    []
+  );
 
-    dispatch(
-      filterClasses({
-        [name]: name.includes('Rate') ? Number(value) : value,
-      })
-    );
-  };
-
-  const handleResetFilters = () => {
-    const reset: Filters = {
+  const handleResetFilters = useCallback(() => {
+    setLocalFilters({
       province_id: '',
       subject_id: '',
-      gradeLevel: '',
-      educationLevel: '',
+      classLevel: '',
       minRate: 0,
       maxRate: 999999,
-    };
-    setLocalFilters(reset);
-    dispatch(resetFilters());
-  };
+    });
+  }, []);
 
-  const handleClassClick = (class_id: string | number) => {
-    navigate(`/search/classes/${class_id}`);
-  };
+  const handleClassClick = useCallback(
+    (class_id: string | number) => {
+      console.log('🖱️ Click Xem chi tiết, classId:', class_id);
+      // ✅ SỬA: Lưu vào sessionStorage + gọi onTabChange
+      sessionStorage.setItem('currentClassId', class_id.toString());
 
-  const handleApplyClass = (classId: string | number) => {
+      if (onTabChange) {
+        console.log('📍 Chuyển sang tab class-detail');
+        onTabChange('class-detail'); // ✅ Ở trong HomePage
+      }
+    },
+    [onTabChange]
+  );
+
+  const handleApplyClass = useCallback((classId: string | number) => {
     console.log('Apply for class:', classId);
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DevNavigation />
+      {/* ✅ GỠ: DevNavigation - đã được render ở HomePage */}
 
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Tìm Lớp</h1>
@@ -137,7 +140,7 @@ export default function SearchPage() {
               >
                 <option value="">-- Chọn môn học --</option>
                 {subjects.map((s: Subject, index) => (
-                  <option key={s.id || index} value={s.id}>
+                  <option key={s.subject_id || index} value={s.subject_id}>
                     {s.name}
                   </option>
                 ))}
@@ -148,35 +151,17 @@ export default function SearchPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Khối lớp</label>
               <select
-                name="gradeLevel"
-                value={localFilters.gradeLevel}
+                name="classLevel"
+                value={localFilters.classLevel}
                 onChange={handleFilterChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option key="" value="">-- Chọn khối lớp --</option>
-                <option key="primary" value="primary">Tiểu học</option>
-                <option key="secondary" value="secondary">Trung học cơ sở</option>
-                <option key="high" value="high">Trung học phổ thông</option>
-                <option key="university" value="university">Đại học</option>
-              </select>
-            </div>
-
-            {/* Education Level Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trình độ học vấn
-              </label>
-              <select
-                name="educationLevel"
-                value={localFilters.educationLevel}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option key="" value="">-- Chọn trình độ --</option>
-                <option key="high_school" value="high_school">Tốt nghiệp THPT</option>
-                <option key="bachelor" value="bachelor">Cử nhân</option>
-                <option key="master" value="master">Thạc sĩ</option>
-                <option key="phd" value="phd">Tiến sĩ</option>
+                <option value="">-- Chọn khối lớp --</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((grade) => (
+                  <option key={grade} value={grade.toString()}>
+                    Lớp {grade}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -211,7 +196,7 @@ export default function SearchPage() {
 
           {/* Reset Button */}
           <div className="mt-4">
-            <Button onClick={handleResetFilters} className="flex-1">
+            <Button onClick={handleResetFilters} className="w-full">
               Reset bộ lọc
             </Button>
           </div>
@@ -228,7 +213,7 @@ export default function SearchPage() {
         {/* Error */}
         {classesError && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            ❌ Lỗi: {classesError}
+            ❌ Lỗi: {(classesError as any)?.message || 'Lỗi tải lớp'}
           </div>
         )}
 
@@ -236,26 +221,28 @@ export default function SearchPage() {
         {!classesLoading && (
           <div>
             <p className="text-gray-600 mb-4">
-              Tìm thấy <strong>{filteredClasses.length}</strong> lớp
+              Tìm thấy <strong>{classes.length}</strong> lớp
             </p>
 
-            {filteredClasses.length === 0 ? (
+            {classes.length === 0 ? (
               <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-6 rounded text-center">
                 ⚠️ Không tìm thấy lớp phù hợp
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClasses.map((cls, index) => (
+                {classes.map((cls, index) => (
                   <Card key={cls.class_id || index} className="relative">
                     <CardHeader>
                       <CardTitle>
-                        {cls.subject_name} lớp {cls.gradeLevel}
+                        {cls.subject_name}
+                        {cls.gradeLevel && (
+                          <span className="text-sm text-gray-500"> Lớp {cls.gradeLevel}</span>
+                        )}
                       </CardTitle>
                     </CardHeader>
-
                     <CardContent>
                       <div className="space-y-2 text-sm text-gray-600 mb-4">
-                        <p>📍 {cls.student_location || 'Không xác định'}</p>
+                        <p>📍 {cls.province_name || 'Không xác định'}</p>
                         <p>💰 {cls.hourly_price?.toLocaleString()} VNĐ/giờ</p>
                       </div>
 

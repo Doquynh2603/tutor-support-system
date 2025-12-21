@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import { StudentProfile } from '@/types';
+import { CreateClassPayload, StudentProfile } from '@/types';
 
 export interface UpdateStudentProfileData {
   fullName?: string;
@@ -22,4 +22,41 @@ export const studentAPI = {
   updateStudentProfile: async (profileData: UpdateStudentProfileData): Promise<StudentProfile> => {
     return apiService.put('/student/profile', profileData);
   },
+};
+
+export const classAPI = {
+  createClass: (data: CreateClassPayload) => apiService.post('/student/class', data),
+  getMyClasses: (status?: string) => {
+    const params = status ? { status } : {};
+    return apiService.get('/student/class', params);
+  },
+  getClassDetails: (classId: string) => apiService.get(`/student/class/${classId}`),
+  getSuggestedTutors: (subjectId: string) =>
+    apiService.get('/student/class/suggested-tutors', { subject_id: subjectId }),
+  inviteTutor: (classId: string, tutorUserId: string) =>
+    apiService.post(`/student/class/${classId}/invite`, { tutor_id: tutorUserId }),
+  approveApplication: (classId: string, applicationId: string) =>
+    apiService.post(`/student/class/${classId}/approve`, { application_id: applicationId }),
+  reviewApplication: (
+    applicationId: string,
+    action: 'approve' | 'reject',
+    rejecttionReason?: string
+  ) =>
+    apiService.post(`/student/application/${applicationId}/review`, {
+      application_id: applicationId,
+      action,
+      rejection_reason: rejecttionReason,
+    }),
+  updateClass: (
+    classId: string,
+    data: {
+      description: string | null;
+      requirement: string | null;
+      hourly_price: number;
+    }
+  ) => apiService.put(`/student/class/${classId}`, data),
+  cancelClass: (classId: string, cancellationReason: string) =>
+    apiService.patch(`/student/class/${classId}`, {
+      cancellation_reason: cancellationReason,
+    }),
 };

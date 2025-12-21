@@ -30,6 +30,7 @@ const searchRoutes = require("./routes/Tutor/searchRoutes");
 const subjectsRoutes = require("./routes/subjectsRoutes");
 const applicationRoutes = require("./routes/Tutor/applicationRoutes");
 const studentRoutes = require("./routes/Student/studentRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const app = express();
 
 // Security & Performance Middlewares
@@ -66,6 +67,7 @@ app.use("/api/search", searchRoutes);
 app.use("/api/subjects", subjectsRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/student", studentRoutes);
+app.use("/api/notifications", notificationRoutes);
 console.log("✅ All routes mounted!");
 // 404 Handler - Route không tồn tại
 app.use((req, res) => {

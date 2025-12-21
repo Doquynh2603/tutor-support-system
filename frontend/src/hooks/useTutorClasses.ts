@@ -4,34 +4,15 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
-import { apiClient } from '../services/api';
-
+import { apiClient, searchAPI } from '../services/api';
 // ===============================
 // TYPES
 // ===============================
 
 export type Role = 'tutor' | 'student' | 'admin' | string;
 
-export interface User {
-  id: number | string;
-  fullName?: string;
-  name?: string;
-  role: Role;
-  email: string;
-}
-
 // Class detail
-import { ClassDetail, StudentProfile, TutorClass } from '../types';
-
-// API response interfaces
-interface ApiTutorClass {
-  class_id: string;
-  subject_name?: string;
-  subject_id?: string;
-  hourly_price?: number;
-  tutor_id?: string;
-  schedules?: unknown[];
-}
+import { ClassDetail, StudentProfile, TutorClass, UserAccount } from '../types';
 
 // Application
 export interface TutorApplication {
@@ -83,14 +64,7 @@ export const useTutorClasses = (status: string | null = null) => {
 
       // Transform API response to match TutorClass interface
       const classesData = response.data?.data || response.data || [];
-      return classesData.map((cls: ApiTutorClass) => ({
-        class_id: cls.class_id,
-        tutor_user_id: cls.tutor_id || '',
-        subject_id: cls.subject_id || '',
-        subject_name: cls.subject_name || '',
-        hourly_price: cls.hourly_price || 0,
-        schedules: cls.schedules || [],
-      })) as TutorClass[];
+      return classesData as TutorClass[];
     },
     enabled: Boolean(user?.user_id && isTutor),
     retry: 2,
@@ -182,4 +156,51 @@ export const useRefreshTutorClasses = () => {
   return () => {
     queryClient.invalidateQueries({ queryKey: tutorClassesQueryKeys.all });
   };
+};
+
+// export const useSearchClasses = (filters: Record<string, unknown>) => {
+//   return useQuery({
+//     queryKey: ['searchClasses', filters],
+//     queryFn: () => {
+//       console.log('🚀 Gọi searchClasses với filters:', filters); // ✅ THÊM
+//       return searchAPI.searchClasses({
+//         province_id: filters.province_id || '', // ✅ Giữ province_id
+//         subject_id: filters.subject_id || '',
+//         classLevel: filters.classLevel ? String(filters.classLevel) : '',
+//         min_hourly_price: String(filters.minRate || 0), // ✅ Đổi minRate → min_hourly_price
+//         max_hourly_price: String(filters.maxRate || 999999), // ✅ Đổi maxRate → max_hourly_price
+//       });
+//     },
+//     enabled: true,
+//     staleTime: 5 * 60 * 1000,
+//   });
+// };
+export const useSearchClasses = (filters: Record<string, unknown>) => {
+  // ✅ Tạo key stable để tránh re-query
+  const filterKey = JSON.stringify(filters);
+
+  return useQuery({
+    queryKey: ['searchClasses', filterKey],
+    queryFn: async () => {
+      console.log('🚀 Gọi searchClasses với filters:', filters);
+
+      try {
+        const response = await searchAPI.searchClasses({
+          province_id: filters.province_id ? String(filters.province_id) : '',
+          subject_id: filters.subject_id ? String(filters.subject_id) : '',
+          classLevel: filters.classLevel ? String(filters.classLevel) : '',
+          min_hourly_price: String(filters.minRate || 0),
+          max_hourly_price: String(filters.maxRate || 999999),
+        });
+        return response.data || response;
+      } catch (error) {
+        console.error('❌ Lỗi tìm kiếm:', error);
+        throw error;
+      }
+    },
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000, // ✅ Giữ cache 10 phút
+    retry: 1, // ✅ Chỉ retry 1 lần thay vì 3 lần
+  });
 };

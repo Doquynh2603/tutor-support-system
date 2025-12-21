@@ -1,6 +1,8 @@
 // frontend/src/components/Student/TutorCard.tsx
 import React from 'react';
 import { Card, CardContent } from '../ui/card';
+import { useFavorites } from '@/hooks/useFavorites';
+import FavoriteButton from './FavoriteButton';
 
 interface Props {
   tutor: any;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const TutorCard: React.FC<Props> = ({ tutor, isSelected, onToggle }) => {
+  const { isFavorite, toggleFavorite } = useFavorites();
   return (
     <Card
       className={`cursor-pointer transition-all ${
@@ -27,12 +30,22 @@ const TutorCard: React.FC<Props> = ({ tutor, isSelected, onToggle }) => {
               </span>
             </div>
           </div>
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => {}}
-            className="w-5 h-5 text-blue-500"
-          />
+
+          {/* ✅ THÊM FAVORITE BUTTON */}
+          <div className="flex items-center gap-2">
+            <FavoriteButton
+              tutorId={tutor.user_id} // Giả sử tutor có user_id hoặc id
+              isFavorite={isFavorite(tutor.user_id)}
+              onToggle={toggleFavorite}
+              size="sm"
+            />
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              className="w-5 h-5 text-blue-500"
+            />
+          </div>
         </div>
 
         <div className="text-lg font-bold text-blue-600 mb-2">

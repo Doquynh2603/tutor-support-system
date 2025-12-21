@@ -7,27 +7,10 @@ import { Label } from '../ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Save, X, Loader2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
-import { StudentProfile } from '../../types';
-
-interface District {
-  id: number;
-  name: string;
-  province_id?: number;
-}
-
-interface Ward {
-  id: number;
-  name: string;
-  district_id?: number;
-}
-
-interface Province {
-  id: number;
-  name: string;
-}
+import { StudentProfile, Province, District, Ward } from '../../types';
 
 interface StudentProfileFormProps {
-  profile: StudentProfile | undefined;
+  profile: StudentProfile | null;
   provinces: Province[];
   districts: District[];
   wards: Ward[];
@@ -37,23 +20,12 @@ interface StudentProfileFormProps {
   isLoadingProvinces?: boolean;
   isLoadingDistricts?: boolean;
   isLoadingWards?: boolean;
-  selectedProvinceId: number | null;
-  selectedDistrictId: number | null;
-  onProvinceChange: (provinceId: number | null) => void;
-  onDistrictChange: (districtId: number | null) => void;
+  selectedProvinceId: string | null;
+  selectedDistrictId: string | null;
+  onProvinceChange: (provinceId: string | null) => void;
+  onDistrictChange: (districtId: string | null) => void;
   validationErrors?: Record<string, string>;
 }
-
-// interface FormData {
-//   fullName: string;
-//   dateOfBirth: string;
-//   phone: string;
-//   province_id: string;
-//   address_id: string;
-//   locationDetail: string;
-//   gradeLevel: string;
-//   school: string;
-// }
 
 const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
   profile,
@@ -73,7 +45,7 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
   validationErrors = {},
 }) => {
   const [formData, setFormData] = useState<StudentProfile>({
-    student_profile_id: '',
+    student_id: '',
     user_id: '',
     name: '',
     email: '',
@@ -81,89 +53,76 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
     phone: '',
     address_id: '',
     locationDetail: '',
-    gradeLevel: '',
+    gradeLevel: null,
     school: '',
+    gender: null,
   });
 
   const [isDirty, setIsDirty] = useState(false);
+
   useEffect(() => {
     if (profile) {
       setFormData({
-        student_profile_id: profile.student_profile_id || '',
+        student_id: profile.student_id || '',
         user_id: profile.user_id || '',
-        name: profile.name || '',
-        email: profile.email || '',
+        name: profile.name ?? '',
+        email: profile.email ?? '',
         dateOfBirth: profile.dateOfBirth ? profile.dateOfBirth.split('T')[0] : '',
-        phone: profile.phone || '',
-        locationDetail: profile.locationDetail || '',
-        address_id: profile.address_id || '',
-        gradeLevel: profile['gradeLevel']?.toString() || '',
-        school: profile.school || '',
+        phone: profile.phone ?? '',
+        locationDetail: profile.locationDetail ?? '',
+        address_id: profile.address_id ? String(profile.address_id) : '', // ✅ UUID string
+        gradeLevel: profile.gradeLevel || null,
+        school: profile.school ?? '',
+        gender: profile.gender ?? null,
       });
       setIsDirty(false);
     }
   }, [profile]);
 
-  // ✅ Fixed handleChange type
+  const handleInputChange = (field: keyof StudentProfile, value: string | number) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value ?? '',
+    }));
+    setIsDirty(true);
+  };
+
+  const handleGenderChange = (value: string) => {
+    let genderValue: boolean | null = null;
+    if (value === 'male') genderValue = true;
+    else if (value === 'female') genderValue = false;
+
+    setFormData((prev) => ({ ...prev, gender: genderValue }));
+    setIsDirty(true);
+  };
+
+  const handleGradeLevelChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      gradeLevel: value ? Number(value) : null,
+    }));
+    setIsDirty(true);
+  };
 
   const handleProvinceChange = (value: string) => {
-    const provinceId = value ? Number(value) : null;
-    onProvinceChange(provinceId);
+    onProvinceChange(value || null);
     setFormData((prev) => ({ ...prev, address_id: '' }));
     setIsDirty(true);
   };
 
   const handleDistrictChange = (value: string) => {
-    const districtId = value ? Number(value) : null;
-    onDistrictChange(districtId);
+    onDistrictChange(value || null);
     setFormData((prev) => ({ ...prev, address_id: '' }));
     setIsDirty(true);
   };
 
   const handleWardChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, address_id: value }));
+    setFormData((prev) => ({ ...prev, address_id: value ?? '' }));
     setIsDirty(true);
   };
 
-  // const validateForm = (): boolean => {
-  //   const errors: ValidationErrors = {};
-  //   if (!formData.fullName?.trim()) errors.fullName = 'Tên không được để trống';
-  //   if (formData.phone && !/^\d{10,15}$/.test(formData.phone.replace(/\D/g, '')))
-  //     errors.phone = 'Số điện thoại không hợp lệ (10-15 chữ số)';
-  //   if (
-  //     formData.gradeLevel &&
-  //     (Number(formData.gradeLevel) < 1 || Number(formData.gradeLevel) > 12)
-  //   )
-  //     errors.gradeLevel = 'Khối lớp phải từ 1 đến 12';
-
-  //   setLocalErrors(errors);
-  //   return Object.keys(errors).length === 0;
-  // };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // const dataToSubmit: Partial<StudentProfile> = {
-    //   fullName: formData.fullName,
-    //   dateOfBirth: formData.dateOfBirth,
-    //   phone: formData.phone,
-    //   locationDetail: formData.locationDetail,
-    //   province_id: formData.province_id,
-    //   address_id: formData.address_id,
-    //   gradeLevel: formData.gradeLevel !== '' ? Number(formData.gradeLevel) : undefined,
-    //   school: formData.school,
-    // };
-
-    // // Remove empty or undefined values
-    // Object.keys(dataToSubmit).forEach((key) => {
-    //   if (
-    //     dataToSubmit[key as keyof StudentProfile] === '' ||
-    //     dataToSubmit[key as keyof StudentProfile] === undefined
-    //   ) {
-    //     delete dataToSubmit[key as keyof StudentProfile];
-    //   }
-    // });
-
     onSave(formData);
   };
 
@@ -185,151 +144,260 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Họ và tên</Label>
               <Input
                 id="name"
-                value={formData.name}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, name: e.target.value }));
-                  setIsDirty(true);
-                }}
+                value={formData.name ?? ''}
+                onChange={(e) => handleInputChange('name', e.target.value)}
                 placeholder="Nhập họ và tên"
+                className={validationErrors.name ? 'border-red-500' : ''}
               />
+              {validationErrors.name && (
+                <p className="text-red-600 text-sm">{validationErrors.name}</p>
+              )}
             </div>
+
+            {/* Phone */}
             <div className="space-y-2">
               <Label htmlFor="phone">Số điện thoại</Label>
               <Input
                 id="phone"
-                value={formData.phone}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, phone: e.target.value }));
-                  setIsDirty(true);
-                }}
+                value={formData.phone ?? ''}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
                 placeholder="Nhập số điện thoại"
+                className={validationErrors.phone ? 'border-red-500' : ''}
               />
+              {validationErrors.phone && (
+                <p className="text-red-600 text-sm">{validationErrors.phone}</p>
+              )}
             </div>
+
+            {/* Date of Birth */}
             <div className="space-y-2">
               <Label htmlFor="dateOfBirth">Ngày sinh</Label>
               <Input
                 id="dateOfBirth"
                 type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => {
-                  setFormData((prev) => ({ ...prev, dateOfBirth: e.target.value }));
-                  setIsDirty(true);
-                }}
+                value={formData.dateOfBirth ?? ''}
+                onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                className={validationErrors.dateOfBirth ? 'border-red-500' : ''}
               />
+              {validationErrors.dateOfBirth && (
+                <p className="text-red-600 text-sm">{validationErrors.dateOfBirth}</p>
+              )}
+            </div>
+
+            {/* Gender */}
+            <div className="space-y-2">
+              <Label htmlFor="gender">Giới tính</Label>
+              <Select
+                value={
+                  formData.gender === true ? 'male' : formData.gender === false ? 'female' : ''
+                }
+                onValueChange={handleGenderChange}
+              >
+                <SelectTrigger className={validationErrors.gender ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Chọn giới tính" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Nam</SelectItem>
+                  <SelectItem value="female">Nữ</SelectItem>
+                </SelectContent>
+              </Select>
+              {validationErrors.gender && (
+                <p className="text-red-600 text-sm">{validationErrors.gender}</p>
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Tutor Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin gia sư</CardTitle>
+          <CardTitle>Thông tin học tập</CardTitle>
         </CardHeader>
-        <div className="space-y-2">
-          <Label htmlFor="school">Trường học</Label>
-          <Input
-            id="school"
-            value={formData.school}
-            onChange={(e) => {
-              setFormData((prev) => ({ ...prev, school: e.target.value }));
-              setIsDirty(true);
-            }}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="gradeLevel">Lớp</Label>
-          <Input
-            id="gradeLevel"
-            value={formData.gradeLevel}
-            onChange={(e) => {
-              setFormData((prev) => ({ ...prev, gradeLevel: e.target.value }));
-              setIsDirty(true);
-            }}
-          />
-        </div>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* School */}
+            <div className="space-y-2">
+              <Label htmlFor="school">Trường học</Label>
+              <Input
+                id="school"
+                value={formData.school ?? ''}
+                onChange={(e) => handleInputChange('school', e.target.value)}
+                placeholder="Nhập tên trường"
+                className={validationErrors.school ? 'border-red-500' : ''}
+              />
+              {validationErrors.school && (
+                <p className="text-red-600 text-sm">{validationErrors.school}</p>
+              )}
+            </div>
+
+            {/* Grade Level */}
+            <div className="space-y-2">
+              <Label htmlFor="gradeLevel">Cấp lớp</Label>
+              <Select
+                value={formData.gradeLevel ? String(formData.gradeLevel) : ''}
+                onValueChange={handleGradeLevelChange}
+              >
+                <SelectTrigger className={validationErrors.gradeLevel ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Chọn cấp lớp" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((level) => (
+                    <SelectItem key={`grade-${level}`} value={String(level)}>
+                      Lớp {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {validationErrors.gradeLevel && (
+                <p className="text-red-600 text-sm">{validationErrors.gradeLevel}</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
       </Card>
+
+      {/* Address */}
       <Card>
         <CardHeader>
           <CardTitle>Địa chỉ</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Province */}
             <div className="space-y-2">
               <Label htmlFor="province">Tỉnh/Thành phố</Label>
+              <div className="text-xs text-gray-500 mb-1">📊 {provinces?.length || 0} items</div>
               <Select
-                value={selectedProvinceId?.toString() || ''}
+                value={selectedProvinceId ?? ''} // ✅ UUID string
                 onValueChange={handleProvinceChange}
                 disabled={isLoadingProvinces}
               >
-                <SelectTrigger>
+                <SelectTrigger className={validationErrors.province ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Chọn tỉnh/thành phố" />
                 </SelectTrigger>
                 <SelectContent>
-                  {provinces.map((province) => (
-                    <SelectItem key={province.id} value={province.id.toString()}>
-                      {province.name}
-                    </SelectItem>
-                  ))}
+                  {provinces && provinces.length > 0 ? (
+                    provinces.map((province) => (
+                      <SelectItem
+                        key={`province-${province.id}`}
+                        value={province.id} // ✅ UUID string
+                      >
+                        {province.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-gray-500">
+                      {isLoadingProvinces ? '⏳ Đang tải...' : '❌ Không có dữ liệu'}
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
+              {validationErrors.province && (
+                <p className="text-red-600 text-sm">{validationErrors.province}</p>
+              )}
             </div>
+
+            {/* District */}
             <div className="space-y-2">
               <Label htmlFor="district">Quận/Huyện</Label>
+              <div className="text-xs text-gray-500 mb-1">📊 {districts?.length || 0} items</div>
               <Select
-                value={selectedDistrictId?.toString() || ''}
+                value={selectedDistrictId ?? ''} // ✅ UUID string
                 onValueChange={handleDistrictChange}
                 disabled={!selectedProvinceId || isLoadingDistricts}
               >
-                <SelectTrigger>
+                <SelectTrigger className={validationErrors.district ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Chọn quận/huyện" />
                 </SelectTrigger>
                 <SelectContent>
-                  {districts.map((district) => (
-                    <SelectItem key={district.id} value={district.id.toString()}>
-                      {district.name}
-                    </SelectItem>
-                  ))}
+                  {districts && districts.length > 0 ? (
+                    districts.map((district) => (
+                      <SelectItem
+                        key={`district-${district.id}`}
+                        value={district.id} // ✅ UUID string
+                      >
+                        {district.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-gray-500">
+                      {!selectedProvinceId
+                        ? '⚠️ Chọn tỉnh trước'
+                        : isLoadingDistricts
+                          ? '⏳ Đang tải...'
+                          : '❌ Không có dữ liệu'}
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
+              {validationErrors.district && (
+                <p className="text-red-600 text-sm">{validationErrors.district}</p>
+              )}
             </div>
+
+            {/* Ward */}
             <div className="space-y-2">
               <Label htmlFor="ward">Phường/Xã</Label>
+              <div className="text-xs text-gray-500 mb-1">📊 {wards?.length || 0} items</div>
               <Select
-                value={formData.address_id}
+                value={formData.address_id ?? ''} // ✅ UUID string
                 onValueChange={handleWardChange}
                 disabled={!selectedDistrictId || isLoadingWards}
               >
-                <SelectTrigger>
+                <SelectTrigger className={validationErrors.ward ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Chọn phường/xã" />
                 </SelectTrigger>
                 <SelectContent>
-                  {wards.map((ward) => (
-                    <SelectItem key={ward.id} value={ward.id.toString()}>
-                      {ward.name}
-                    </SelectItem>
-                  ))}
+                  {wards && wards.length > 0 ? (
+                    wards.map((ward) => (
+                      <SelectItem
+                        key={`ward-${ward.id}`}
+                        value={ward.id} // ✅ UUID string
+                      >
+                        {ward.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-gray-500">
+                      {!selectedDistrictId
+                        ? '⚠️ Chọn huyện trước'
+                        : isLoadingWards
+                          ? '⏳ Đang tải...'
+                          : '❌ Không có dữ liệu'}
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
+              {validationErrors.ward && (
+                <p className="text-red-600 text-sm">{validationErrors.ward}</p>
+              )}
             </div>
           </div>
+
+          {/* Location Detail */}
           <div className="space-y-2">
             <Label htmlFor="locationDetail">Địa chỉ chi tiết</Label>
             <Textarea
               id="locationDetail"
-              value={formData.locationDetail}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, locationDetail: e.target.value }));
-                setIsDirty(true);
-              }}
+              value={formData.locationDetail ?? ''}
+              onChange={(e) => handleInputChange('locationDetail', e.target.value)}
               placeholder="Nhập địa chỉ chi tiết"
               rows={2}
+              className={validationErrors.locationDetail ? 'border-red-500' : ''}
             />
+            {validationErrors.locationDetail && (
+              <p className="text-red-600 text-sm">{validationErrors.locationDetail}</p>
+            )}
           </div>
         </CardContent>
       </Card>
+
       {/* Form Actions */}
       <Card>
         <CardContent className="pt-6">

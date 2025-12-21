@@ -1,16 +1,12 @@
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { subjectsAPI } from '../services/api';
 import { AxiosError } from 'axios';
+import { log } from 'console';
 
 // ================================
 // Types
 // ================================
-export interface Subject {
-  id: string | number;
-  name: string;
-  description?: string;
-}
-
+import { Subject } from '../types';
 // ================================
 // Hook: useSubjects
 // ================================
@@ -19,6 +15,8 @@ export const useSubjects = (enabled: boolean = false) => {
     queryKey: ['subjects'],
     queryFn: async () => {
       const data = await subjectsAPI.getSubjects();
+      console.log('dữ liệu lấy được từ backend: ', data);
+
       return data || [];
     },
     enabled,

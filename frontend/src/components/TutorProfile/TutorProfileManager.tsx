@@ -21,23 +21,23 @@ import TutorProfileForm from './TutorProfileForm';
 import { useTutorProfile, useUpdateTutorProfile } from '../../hooks/useTutorProfile';
 import { useProvinces, useDistricts, useWards } from '../../hooks/useProvinces';
 import { TutorProfile } from '@/types';
-
+import { useSubjects } from '../../hooks/useSubjects';
 interface Province {
-  id: string | number;
+  id: string;
   name: string;
 }
 
 interface District {
-  id: string | number;
+  id: string;
   name: string;
-  province_id?: string | number;
+  province_id?: string;
 }
 
 interface Ward {
-  id: string | number;
+  id: string;
   name: string;
-  district_id?: string | number;
-  province_id?: string | number;
+  district_id?: string;
+  province_id?: string;
 }
 
 interface Notification {
@@ -54,6 +54,9 @@ const TutorProfileManager: React.FC = () => {
   const validationErrors = useSelector((state: RootState) => selectValidationErrors(state));
   const notification = useSelector((state: RootState) => selectNotification(state)) as Notification;
 
+  // ✅ THÊM: State để track khi nào cần fetch subjects
+  const [shouldFetchSubjects, setShouldFetchSubjects] = useState(false);
+
   // Location selection state
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
   const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null);
@@ -68,39 +71,59 @@ const TutorProfileManager: React.FC = () => {
 
   // Location queries
   const { data: provinces = [], isLoading: isLoadingProvinces } = useProvinces(true);
-  const { data: districts = [], isLoading: isLoadingDistricts } = useDistricts(selectedProvinceId, true);
+  const { data: districts = [], isLoading: isLoadingDistricts } = useDistricts(
+    selectedProvinceId,
+    true
+  );
   const { data: wards = [], isLoading: isLoadingWards } = useWards(selectedDistrictId, true);
+
+  // ✅ SỬA: Gọi useSubjects với enabled condition
+  const {
+    data: subjects = [],
+    isLoading: isLoadingSubjects,
+    refetch: refetchSubjects,
+  } = useSubjects(shouldFetchSubjects);
 
   const updateProfileMutation = useUpdateTutorProfile();
 
-  // Khi profile thay đổi và không ở chế độ edit, reset form và location state
+  // ✅ THÊM: Khi nút "Chỉnh sửa" được click
+  const handleEdit = () => {
+    console.log('📝 Click edit - fetching subjects...');
+    setShouldFetchSubjects(true); // ✅ Bật flag để fetch subjects
+    dispatch(setEditingProfile(true));
+  };
+
+  // ✅ Khi profile thay đổi và không ở chế độ edit, reset form và location state
   useEffect(() => {
     if (profile && !isEditing) {
       dispatch(resetFormState());
       setSelectedProvinceId(null);
       setSelectedDistrictId(null);
+      setShouldFetchSubjects(false); // ✅ Tắt flag khi exit edit mode
     }
   }, [profile, isEditing, dispatch]);
 
-  const handleEdit = () => dispatch(setEditingProfile(true));
-
   const handleCancelEdit = () => {
+    console.log('❌ Cancel edit');
     dispatch(resetProfileForm());
     dispatch(resetFormState());
     setSelectedProvinceId(null);
     setSelectedDistrictId(null);
+    setShouldFetchSubjects(false); // ✅ Tắt flag khi cancel
   };
 
   const handleSave = async (formData: Partial<TutorProfile>) => {
     try {
+      console.log('📝 [TutorProfileManager] Saving profile with data:', formData);
       await updateProfileMutation.mutateAsync(formData);
       dispatch(setEditingProfile(false));
       dispatch(resetProfileForm());
       dispatch(resetFormState());
       setSelectedProvinceId(null);
       setSelectedDistrictId(null);
+      setShouldFetchSubjects(false); // ✅ Tắt flag khi save
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('❌ Error updating profile:', error);
     }
   };
 
@@ -135,7 +158,9 @@ const TutorProfileManager: React.FC = () => {
           <CardContent className="flex flex-col items-center justify-center p-8">
             <AlertCircle className="h-12 w-12 text-destructive mb-4" />
             <h3 className="text-lg font-semibold mb-2">Có lỗi xảy ra</h3>
-            <p className="text-muted-foreground text-center mb-6">{profileError.message}</p>
+            <p className="text-muted-foreground text-center mb-6">
+              {profileError instanceof Error ? profileError.message : 'Lỗi không xác định'}
+            </p>
             <Button onClick={() => refetchProfile()} disabled={isLoadingProfile} className="w-full">
               {isLoadingProfile ? (
                 <>
@@ -169,7 +194,7 @@ const TutorProfileManager: React.FC = () => {
       </Card>
 
       {/* Notification */}
-      {notification.show && (
+      {notification && notification.show && (
         <Alert
           variant={notification.type === 'error' ? 'destructive' : 'default'}
           className={cn(
@@ -200,8 +225,20 @@ const TutorProfileManager: React.FC = () => {
         {!isEditing ? (
           <>
             <div className="flex justify-end">
-              <Button onClick={handleEdit} disabled={isLoadingProfile} className="gap-2">
-                <Edit className="h-4 w-4" /> Chỉnh sửa thông tin
+              <Button
+                onClick={handleEdit}
+                disabled={isLoadingProfile || isLoadingSubjects}
+                className="gap-2"
+              >
+                {isLoadingSubjects ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4" /> Chỉnh sửa thông tin
+                  </>
+                )}
               </Button>
             </div>
             <TutorProfileDisplay
@@ -227,6 +264,8 @@ const TutorProfileManager: React.FC = () => {
             onCancel={handleCancelEdit}
             isSubmitting={updateProfileMutation.isPending || isSubmitting}
             validationErrors={validationErrors}
+            subjects={subjects} // ✅ Pass subjects từ API
+            isLoadingSubjects={isLoadingSubjects} // ✅ Pass loading state
           />
         )}
       </div>

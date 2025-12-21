@@ -1,32 +1,16 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Loader2, BookOpen, CheckCircle, PlusCircle } from 'lucide-react';
 import { useTutorClasses } from '../../hooks/useTutorClasses';
 import TutorClassDetail from './TutorClassDetail';
 import { TutorClass } from '@/types';
-import dayjs from 'dayjs';
 
 interface ClassesListProps {
   classes: TutorClass[];
   onSelectClass: (classId: string) => void;
 }
-
-const getDayName = (dayOfWeek: number): string => {
-  const days = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
-  return days[dayOfWeek] || '';
-};
-
-const formatTime = (timeString?: string): string => {
-  if (!timeString) return '';
-  try {
-    const date = new Date(timeString);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return timeString;
-  }
-};
 
 const ClassesList: React.FC<ClassesListProps> = ({ classes, onSelectClass }) => {
   console.log('Classes', classes);
@@ -42,29 +26,22 @@ const ClassesList: React.FC<ClassesListProps> = ({ classes, onSelectClass }) => 
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-base">{cls.subject_name}</CardTitle>
+                <CardTitle className="text-base">
+                  {cls.subject_name} {cls.classLevel}
+                </CardTitle>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 text-sm">
-              {cls.schedules && cls.schedules.length > 0 && (
-                <div>
-                  <label className="text-xs text-muted-foreground font-semibold">Lịch Học</label>
-                  <div className="space-y-1 mt-1">
-                    {cls.schedules.map((schedule) => (
-                      <div key={schedule.schedule_id} className="bg-blue-50 p-2 rounded text-xs">
-                        <span className="font-semibold">{getDayName(schedule.day_of_week)}</span>{' '}
-                        <span>
-                          {formatTime(schedule.start_date)} - {formatTime(schedule.end_date)}
-                        </span>{' '}
-                        <span>Ngày{dayjs(schedule.start_date).format('DD/MM/YYYY')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+              <div className="space-y-2 text-sm text-gray-600 mb-4">
+                <p>
+                  📍{' '}
+                  {`${cls.classLocation}, ${cls.ward_name}, ${cls.district_name}, ${cls.province_name}` ||
+                    'Không xác định'}
+                </p>
+                <p>💰 {cls.hourly_price?.toLocaleString()} VNĐ/giờ</p>
+              </div>
               <div className="pt-2">
                 <Button className="w-full" size="sm" variant="default">
                   Xem Chi Tiết

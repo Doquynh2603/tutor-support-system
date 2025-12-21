@@ -14,124 +14,21 @@ class ApplicationModel {
     try {
       let query = `
       SELECT 
-        ta.application_id,
-        ta.status as application_status,
-        ta.applied_at as applied_date,
-        ta.approved_at,
-        ta.response_at,
-        ta.isConfirmed,
-        ta.declineReason,
-        ta.withdrawReason,
-        ta.withdrawn_at,
-
-        c.class_id,
-        c.description as class_description,
-        c.hourly_price,
-        c.requirement,
-        c.status as class_status,
-        c.created_at as class_created_at,
-        c.cancellation_reason,
-        sub.name as subject_name,
-
-        ua.name as student_name,
-        ua.email as student_email,
-        ua.phone as student_phone,
-
-        sp.gradeLevel,
-        sp.school,
-
-        w.name as ward_name,
-        p.name as province_name,
-
-        sch.schedule_id,
-        sch.day_of_week,
-        sch.start_date as start_time,
-        sch.end_date as end_time,
-        sch.duration_minutes,
-        sch.status as schedule_status,
-        sch.recurrence_type
-
-      FROM TutorApplication ta
-      JOIN Class c ON ta.class_id = c.class_id
-      JOIN Subjects sub ON c.subject_id = sub.subject_id
-      
-      JOIN UserAccount ua ON ua.user_id = c.student_id
-      JOIN StudentProfile sp ON sp.user_id = ua.user_id
-
-      LEFT JOIN Ward w ON ua.address_id = w.id
-      LEFT JOIN District d ON w.district_id = d.id
-      LEFT JOIN Province_Id p ON d.province_id = p.id
-
-      LEFT JOIN Schedule sch 
-        ON c.class_id = sch.class_id
-        AND (sch.end_date IS NULL OR sch.end_date >= GETDATE())
-
-      WHERE ta.tutor_id = :tutorUserId
+        * from View_ApplicationList
+      WHERE tutor_id = :tutorUserId
     `;
 
       if (appStatus) {
-        query += ` AND ta.status = :appStatus`;
+        query += ` AND application_status = :appStatus`;
       }
 
-      query += ` ORDER BY ta.applied_at DESC`;
+      query += ` ORDER BY applied_at DESC`;
 
       const rows = await sequelize.query(query, {
         replacements: { tutorUserId, appStatus: appStatus || null },
         type: QueryTypes.SELECT,
       });
-
-      // ---- Gom vào application giống model 1 ----
-      const appMap = {};
-
-      rows.forEach((row) => {
-        if (!appMap[row.application_id]) {
-          appMap[row.application_id] = {
-            application_id: row.application_id,
-            status: row.application_status,
-            applied_date: row.applied_date,
-            approved_at: row.approved_at,
-            response_at: row.response_at,
-            isConfirmed: row.isConfirmed,
-            declineReason: row.declineReason,
-            withdrawReason: row.withdrawReason,
-            withdrawn_at: row.withdrawn_at,
-
-            class_id: row.class_id,
-            class_description: row.class_description,
-            hourly_price: row.hourly_price,
-            requirement: row.requirement,
-            class_status: row.class_status,
-            class_created_at: row.class_created_at,
-            cancellation_reason: row.cancellation_reason,
-            subject_name: row.subject_name,
-
-            student_name: row.student_name,
-            student_email: row.student_email,
-            student_phone: row.student_phone,
-            gradeLevel: row.gradeLevel,
-            school: row.school,
-
-            ward_name: row.ward_name,
-            province_name: row.province_name,
-
-            schedules: [],
-          };
-        }
-
-        if (row.schedule_id) {
-          appMap[row.application_id].schedules.push({
-            schedule_id: row.schedule_id,
-            day_of_week: row.day_of_week,
-            start_time: row.start_time,
-            end_time: row.end_time,
-            duration_minutes: row.duration_minutes,
-            schedule_status: row.schedule_status,
-            recurrence_type: row.recurrence_type,
-          });
-        }
-      });
-
-      return Object.values(appMap);
+      return rows;
     } catch (error) {
       console.error(
         "❌ [ClassModel.getTutorApplications] Error:",
@@ -146,60 +43,10 @@ class ApplicationModel {
     try {
       let query = `
       SELECT 
-        ta.application_id,
-        ta.status as application_status,
-        ta.applied_at as applied_date,
-        ta.approved_at,
-        ta.response_at,
-        ta.isConfirmed,
-        ta.declineReason,
-        ta.withdrawReason,
-        ta.withdrawn_at,
+        * from View_ApplicationDetail
 
-        c.class_id,
-        c.description as class_description,
-        c.hourly_price,
-        c.requirement,
-        c.status as class_status,
-        c.created_at as class_created_at,
-        c.cancellation_reason,
-        sub.name as subject_name,
-
-        ua.name as student_name,
-        ua.email as student_email,
-        ua.phone as student_phone,
-
-        sp.gradeLevel,
-        sp.school,
-
-        w.name as ward_name,
-        p.name as province_name,
-
-        sch.schedule_id,
-        sch.day_of_week,
-        sch.start_date as start_time,
-        sch.end_date as end_time,
-        sch.duration_minutes,
-        sch.status as schedule_status,
-        sch.recurrence_type
-
-      FROM TutorApplication ta
-      JOIN Class c ON ta.class_id = c.class_id
-      JOIN Subjects sub ON c.subject_id = sub.subject_id
-
-      JOIN UserAccount ua ON ua.user_id = c.student_id
-      JOIN StudentProfile sp ON sp.user_id = ua.user_id
-
-      LEFT JOIN Ward w ON ua.address_id = w.id
-      LEFT JOIN District d ON w.district_id = d.id
-      LEFT JOIN Province_Id p ON d.province_id = p.id
-
-      LEFT JOIN Schedule sch 
-        ON c.class_id = sch.class_id
-        AND (sch.end_date IS NULL OR sch.end_date >= GETDATE())
-
-      WHERE ta.application_id = :applicationId
-        AND ta.tutor_id = :tutorUserId
+      WHERE application_id = :applicationId
+        AND tutor_id = :tutorUserId
     `;
 
       const rows = await sequelize.query(query, {
@@ -208,51 +55,7 @@ class ApplicationModel {
       });
 
       if (rows.length === 0) return null;
-
-      // Gom dữ liệu schedules
-      const result = {
-        application_id: rows[0].application_id,
-        status: rows[0].application_status,
-        applied_date: rows[0].applied_date,
-        approved_at: rows[0].approved_at,
-        response_at: rows[0].response_at,
-        isConfirmed: rows[0].isConfirmed,
-        declineReason: rows[0].declineReason,
-        withdrawReason: rows[0].withdrawReason,
-        withdrawn_at: rows[0].withdrawn_at,
-
-        class_id: rows[0].class_id,
-        class_description: rows[0].class_description,
-        hourly_price: rows[0].hourly_price,
-        requirement: rows[0].requirement,
-        class_status: rows[0].class_status,
-        class_created_at: rows[0].class_created_at,
-        cancellation_reason: rows[0].cancellation_reason,
-        subject_name: rows[0].subject_name,
-
-        student_name: rows[0].student_name,
-        student_email: rows[0].student_email,
-        student_phone: rows[0].student_phone,
-        gradeLevel: rows[0].gradeLevel,
-        school: rows[0].school,
-
-        ward_name: rows[0].ward_name,
-        province_name: rows[0].province_name,
-
-        schedules: rows
-          .filter((r) => r.schedule_id)
-          .map((r) => ({
-            schedule_id: r.schedule_id,
-            day_of_week: r.day_of_week,
-            start_time: r.start_time,
-            end_time: r.end_time,
-            duration_minutes: r.duration_minutes,
-            schedule_status: r.schedule_status,
-            recurrence_type: r.recurrence_type,
-          })),
-      };
-
-      return result;
+      return rows[0];
     } catch (error) {
       console.error(
         "❌ [ApplicationModel.getTutorApplicationById] Error:",
@@ -291,7 +94,10 @@ class ApplicationModel {
         throw new Error("Bạn đã ứng tuyển cho lớp này rồi");
 
       const withdrawnApplication = allApplications.find(
-        (app) => app.status === "withdrawn"
+        (app) =>
+          app.status === "withdrawn" ||
+          app.status === "rejected" ||
+          app.status === "invitation_cancelled"
       );
       let application;
 

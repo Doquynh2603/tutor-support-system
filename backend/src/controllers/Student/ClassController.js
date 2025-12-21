@@ -6,6 +6,7 @@
  */
 
 const ClassModel = require("../../models/Student/classModel");
+const ClassService = require("../../service/ClassService");
 const { responseFormatter } = require("../../utils/responseFormatter");
 
 class ClassController {
@@ -14,15 +15,34 @@ class ClassController {
   // =====================================================
   static async createClass(req, res) {
     try {
-      const { subject_id, description, requirement, hourly_price, schedules } =
-        req.body;
+      const {
+        subject_id,
+        description,
+        requirement,
+        hourly_price,
+        classLevel,
+        start_date,
+        end_date,
+        schedules,
+      } = req.body;
       const student_user_id = req.user.user_id;
-
+      console.log("📥 [createClass] Request body:", {
+        subject_id,
+        description,
+        requirement,
+        hourly_price,
+        classLevel,
+        start_date,
+        end_date,
+        schedules,
+      });
       // ✅ Validation
       if (
         !subject_id ||
-        !description ||
         !hourly_price ||
+        !classLevel ||
+        !start_date ||
+        !end_date ||
         !Array.isArray(schedules) ||
         schedules.length === 0
       ) {
@@ -31,21 +51,47 @@ class ClassController {
           .json(
             responseFormatter(
               false,
-              "Vui lòng điền đầy đủ: subject_id, description, hourly_price, schedules"
+              "Vui lòng điền đầy đủ: subject_id, hourly_price, classLevel, start_date, end_date, schedules"
+            )
+          );
+      }
+      // ✅ VALIDATION 2: Kiểm tra định dạng ngày
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res
+          .status(400)
+          .json(
+            responseFormatter(
+              false,
+              "Định dạng ngày không hợp lệ. Vui lòng sử dụng format: YYYY-MM-DD"
             )
           );
       }
 
-      // ✅ Validate schedules - Fix: day_of_week có thể là 0 (Chủ nhật)
-      const invalidSchedules = schedules.some(
-        (s) =>
+      if (startDate >= endDate) {
+        return res
+          .status(400)
+          .json(
+            responseFormatter(false, "Ngày bắt đầu phải nhỏ hơn ngày kết thúc")
+          );
+      }
+      // ✅ VALIDATION 3: Kiểm tra lịch học
+      const invalidSchedules = schedules.some((s) => {
+        console.log("🔍 Checking schedule:", s);
+        return (
           s.day_of_week === undefined ||
           s.day_of_week === null ||
-          !s.start_date ||
-          !s.end_date ||
+          s.day_of_week < 1 ||
+          s.day_of_week > 7 ||
+          !s.start_time ||
+          !s.end_time ||
           s.duration_minutes === undefined ||
-          s.duration_minutes === null
-      );
+          s.duration_minutes === null ||
+          s.duration_minutes <= 0
+        );
+      });
 
       if (invalidSchedules) {
         console.error("❌ Invalid schedule:", schedules);
@@ -54,8 +100,48 @@ class ClassController {
           .json(
             responseFormatter(
               false,
-              "Lịch học không hợp lệ. Mỗi lịch phải có: day_of_week, start_date, end_date, duration_minutes"
+              "Lịch học không hợp lệ. Mỗi lịch phải có:\n" +
+                "- day_of_week: 1-7 (1=Thứ 2, 7=Chủ nhật)\n" +
+                "- start_time: HH:MM (ví dụ: 09:00)\n" +
+                "- end_time: HH:MM (ví dụ: 11:00)\n" +
+                "- duration_minutes: > 0"
             )
+          );
+      }
+      // ✅ VALIDATION 4: Kiểm tra thời gian lịch học
+      const invalidTimes = schedules.some((s) => {
+        const [startHour, startMin] = s.start_time.split(":").map(Number);
+        const [endHour, endMin] = s.end_time.split(":").map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+
+        return startMinutes >= endMinutes;
+      });
+
+      if (invalidTimes) {
+        return res
+          .status(400)
+          .json(
+            responseFormatter(
+              false,
+              "Thời gian kết thúc phải lớn hơn thời gian bắt đầu"
+            )
+          );
+      }
+      // ✅ VALIDATION 5: Kiểm tra hourly_price
+      if (hourly_price <= 0 || hourly_price > 9999999) {
+        return res
+          .status(400)
+          .json(responseFormatter(false, "Học phí không hợp lệ (phải > 0)"));
+      }
+
+      // ✅ VALIDATION 6: Kiểm tra classLevel
+      if (classLevel < 1 || classLevel > 12) {
+        return res
+          .status(400)
+          .json(
+            responseFormatter(false, "Cấp lớp không hợp lệ (phải từ 1 đến 12)")
           );
       }
 
@@ -68,10 +154,19 @@ class ClassController {
         subject_id,
         description,
         requirement,
-        hourly_price,
+        parseInt(hourly_price), // ✅ Parse to int
+        parseInt(classLevel),
+        start_date,
+        end_date,
         schedulesJson
       );
+      if (!classId) {
+        throw new Error(
+          "Tạo lớp học thất bại - Không nhận được class_id từ database"
+        );
+      }
 
+      console.log("✅ [createClass] Class created successfully:", classId);
       return res.status(201).json(
         responseFormatter(
           {
@@ -99,7 +194,6 @@ class ClassController {
       const { class_id } = req.params; // ✅ Từ URL path
       const { tutor_id } = req.body; // ✅ Từ body
       const student_user_id = req.user.user_id;
-
       // ✅ Validation
       if (!class_id || !tutor_id) {
         return res
@@ -109,8 +203,9 @@ class ClassController {
           );
       }
 
+      // gọi service thay vì trực tiếp model
       // ✅ Call model (SP sẽ validate)
-      const result = await ClassModel.inviteSingleTutor(
+      const result = await ClassService.inviteSingleTutor(
         class_id,
         tutor_id,
         student_user_id
@@ -135,39 +230,39 @@ class ClassController {
   // =====================================================
   // 3. DUYỆT ỨNG TUYỂN
   // =====================================================
-  static async approveApplication(req, res) {
-    try {
-      const { class_id } = req.params; // ✅ Từ URL path
-      const { application_id } = req.body;
-      const student_user_id = req.user.user_id;
+  // static async approveApplication(req, res) {
+  //   try {
+  //     const { class_id } = req.params; // ✅ Từ URL path
+  //     const { application_id } = req.body;
+  //     const student_user_id = req.user.user_id;
 
-      if (!application_id) {
-        return res
-          .status(400)
-          .json(responseFormatter(false, "Vui lòng cung cấp application_id"));
-      }
+  //     if (!application_id) {
+  //       return res
+  //         .status(400)
+  //         .json(responseFormatter(false, "Vui lòng cung cấp application_id"));
+  //     }
 
-      // ✅ Call model
-      const result = await ClassModel.approveApplication(
-        application_id,
-        student_user_id
-      );
+  //     // ✅ Call model
+  //     const result = await ClassModel.approveApplication(
+  //       application_id,
+  //       student_user_id
+  //     );
 
-      return res.status(200).json(
-        responseFormatter(
-          {
-            class_id,
-            application_id,
-            is_locked: true,
-          },
-          result.message
-        )
-      );
-    } catch (error) {
-      console.error("Error approving application:", error);
-      return res.status(500).json(responseFormatter(false, error.message));
-    }
-  }
+  //     return res.status(200).json(
+  //       responseFormatter(
+  //         {
+  //           class_id,
+  //           application_id,
+  //           is_locked: true,
+  //         },
+  //         result.message
+  //       )
+  //     );
+  //   } catch (error) {
+  //     console.error("Error approving application:", error);
+  //     return res.status(500).json(responseFormatter(false, error.message));
+  //   }
+  // }
 
   // =====================================================
   // 4. LẤY DANH SÁCH LỚP CỦA HỌC VIÊN
@@ -180,6 +275,10 @@ class ClassController {
       const classes = await ClassModel.getStudentClasses(
         student_user_id,
         status
+      );
+      console.log(
+        "dữ liệu danh sách lớp của học viên lấy được từ database: ",
+        classes
       );
 
       return res
@@ -283,36 +382,25 @@ class ClassController {
     try {
       const { class_id } = req.params;
       const student_user_id = req.user.user_id;
-      const { description, requirement, hourly_price } = req.body;
+      const { description, requirement, hourly_price, classLevel } = req.body;
 
-      if (!hourly_price) {
+      if (!hourly_price || !classLevel) {
         return res
           .status(400)
           .json(
             responseFormatter(
               false,
-              "Vui lòng cung cấp đầy đủ thông tin bắt buộc: subject_id, hourly_price"
+              "Vui lòng cung cấp đầy đủ thông tin bắt buộc: hourly_price, classLevel"
             )
           );
       }
-
-      const result = await ClassModel.updateClassInfo(
-        class_id,
-        student_user_id,
-        { description, requirement, hourly_price }
-      );
-
-      // lấy danh sách gia sư ứng tuyển/được mời để thông báo
-      const tutors = await ClassModel.getApplicationTutors(class_id);
-      console.log(`📢 Notifying ${tutors.length} tutors about class update`);
-      // TODO: Gửi notification (websocket, email, hoặc database notification table)
-      // for (const tutor of tutors) {
-      //   await notificationService.send({
-      //     userId: tutor.user_id,
-      //     message: `Lớp học "${class_id}" vừa được cập nhật thông tin`,
-      //     type: 'CLASS_UPDATED'
-      //   });
-      // }
+      // gọi service thay vì trực tiếp model
+      const result = await ClassService.updateClass(class_id, student_user_id, {
+        description,
+        requirement,
+        hourly_price,
+        classLevel,
+      });
 
       return res
         .status(200)
@@ -343,8 +431,8 @@ class ClassController {
           .status(400)
           .json(responseFormatter(false, "Lý do hủy lớp là bắt buộc"));
       }
-      // hủy lớp học
-      const result = await ClassModel.cancelClass(
+      // hủy lớp học-gọi service thay vì trực tiếp model
+      const result = await ClassService.cancelClass(
         class_id,
         student_user_id,
         cancellation_reason
@@ -386,33 +474,11 @@ class ClassController {
         applications
       );
 
-      //lấy lịch của lớp
-      const classSchedules = await ClassModel.getClassSchedules(class_id);
-
-      // kiểm tra lịch trùng và filter
-      const applicationWithConflict = applications.map((app) => {
-        const tutorSchedules = applications
-          .filter((a) => a.tutor_id === app.tutor_id)
-          .map((a) => ({
-            day_of_week: a.day_of_week,
-            start_time: a.start_time,
-            end_time: a.end_time,
-          }))
-          .filter((s) => s.day_of_week !== null);
-        const hasConflict = ClassModel.checkScheduleConflict(
-          classSchedules,
-          tutorSchedules
-        );
-        return {
-          ...app,
-          schedule_conflict: hasConflict,
-        };
-      });
       return res
         .status(200)
         .json(
           responseFormatter(
-            applicationWithConflict,
+            applications,
             "Lấy danh sách gia sư ứng tuyển thành công"
           )
         );
@@ -480,7 +546,6 @@ class ClassController {
     try {
       const { application_id, action, rejection_reason } = req.body;
       const student_user_id = req.user.user_id;
-
       console.log(
         `📝 [reviewApplication] Reviewing application ${application_id} with action ${action}`
       );
@@ -513,19 +578,15 @@ class ClassController {
           .status(400)
           .json(responseFormatter(false, "Lý do từ chối là bắt buộc"));
       }
-      const result = await ClassModel.reviewTutorApplication(
+
+      //gọi service thay vì trực tiếp model
+      const result = await ClassService.reviewApplication(
         application_id,
         student_user_id,
         action,
         rejection_reason
       );
       console.log(`✅ [reviewApplication] Review result:`, result);
-      // TODO: Gửi notification đến gia sư
-      // if (action === "approve") {
-      //   await notificationService.notifyTutorApproved(application_id);
-      // } else {
-      //   await notificationService.notifyTutorRejected(application_id, rejection_reason);
-      // }
       return res
         .status(200)
         .json(
@@ -547,38 +608,6 @@ class ClassController {
           )
         );
     }
-  }
-  // =====================================================
-  // 12. DUYỆT GIA SƯ (giữ lại cho backward compatible)
-  // =====================================================
-  static async approveApplicationV2(req, res) {
-    return ClassController.reviewApplication(
-      {
-        ...req,
-        body: {
-          ...req.body,
-          action: "approve",
-        },
-      },
-      res
-    );
-  }
-
-  // =====================================================
-  // 13. TỪ CHỐI GIA SƯ (giữ lại cho backward compatible)
-  // =====================================================
-  static async rejectApplication(req, res) {
-    return ClassController.reviewApplication(
-      {
-        ...req,
-        body: {
-          ...req.body,
-          action: "reject",
-          rejection_reason: req.body.rejection_reason,
-        },
-      },
-      res
-    );
   }
 }
 

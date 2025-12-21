@@ -6,7 +6,7 @@ import { tutorProfileAPI } from '../services/tutorApi';
 // Types
 // ================================
 
-import { TutorProfile, User, UpdateTutorProfilePayload } from '@/types';
+import { TutorProfile, UserAccount, UpdateTutorProfilePayload } from '@/types';
 
 export interface ValidationErrors {
   [key: string]: string;
@@ -14,7 +14,7 @@ export interface ValidationErrors {
 
 interface RootState {
   auth: {
-    user: User | null;
+    user: UserAccount | null;
   };
 }
 
@@ -25,7 +25,7 @@ interface MutationContext {
 // ================================
 // Selectors
 // ================================
-const selectUser = (state: RootState): User | null => state.auth?.user;
+const selectUser = (state: RootState): UserAccount | null => state.auth?.user;
 const selectIsTutor = (state: RootState): boolean => state.auth?.user?.role === 'tutor';
 
 // ================================
@@ -33,7 +33,6 @@ const selectIsTutor = (state: RootState): boolean => state.auth?.user?.role === 
 // ================================
 const showSuccess = (message: string) => ({ type: 'ui/showSuccess', payload: message });
 const showError = (message: string) => ({ type: 'ui/showError', payload: message });
-const setLastUpdated = () => ({ type: 'tutor/setLastUpdated', payload: Date.now() });
 
 // ================================
 // Query Keys
@@ -90,13 +89,25 @@ export const useUpdateTutorProfile = () => {
       try {
         console.log('🔄 [useUpdateTutorProfile] Starting update with data:', newProfileData);
         // Convert types to match backend expectations
+        let subjects = newProfileData.subjects || [];
+        if (Array.isArray(subjects) && subjects.length > 0) {
+          // Nếu subjects là objects {subject_id, name}, extract chỉ IDs
+          if (typeof subjects[0] === 'object' && 'subject_id' in subjects[0]) {
+            console.log('⚠️ Subjects là objects, extracting IDs...');
+            subjects = subjects.map((s: any) => s.subject_id);
+            console.log('✅ Extracted subject IDs:', subjects);
+          }
+        }
+
         const payload = {
           ...newProfileData,
           experience_years: newProfileData.experience_years
             ? parseInt(String(newProfileData.experience_years))
             : undefined,
           address_id: newProfileData.address_id ? String(newProfileData.address_id) : undefined,
+          subjects: subjects, // ✅ Ensure array of string IDs only
         };
+
         console.log('🔄 [useUpdateTutorProfile] Converted payload:', payload);
         const updatedProfile = await tutorProfileAPI.updateProfile(payload);
         console.log('✅ [useUpdateTutorProfile] Update successful:', updatedProfile);
@@ -135,11 +146,10 @@ export const useUpdateTutorProfile = () => {
         );
       }
       const errorMessage = error?.message || 'Cập nhật thông tin profile thất bại';
-      dispatch(showError(errorMessage));
+      console.error('❌ Mutation error:', errorMessage);
     },
     onSuccess: () => {
       console.log('✅ Cập nhật profile thành công');
-      dispatch(showSuccess('Cập nhật thông tin thành công'));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: tutorQueryKeys.profile(user?.user_id) });
@@ -232,8 +242,6 @@ export const useProfileValidation = () => {
     }> = [
       { field: 'locationDetail', max: 500, name: 'Chi tiết địa chỉ' },
       { field: 'introduction', max: 1000, name: 'Giới thiệu' },
-      { field: 'teachingStyle', max: 500, name: 'Phong cách dạy' },
-      { field: 'specialties', max: 500, name: 'Chuyên môn' },
     ];
 
     textFields.forEach(({ field, max, name }) => {

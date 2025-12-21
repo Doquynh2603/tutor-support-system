@@ -17,53 +17,24 @@ class ClassModel {
     try {
       // Lấy các lớp DISTINCT (không có schedule columns)
       let query = `
-        SELECT
-          c.tutor_id,
-          c.class_id,
-          c.hourly_price,  
-          c.subject_id,
-          s.name as subject_name
-        FROM Class c
-        JOIN Subjects s ON c.subject_id = s.subject_id
-        WHERE c.tutor_id = :tutorUserId
+        SELECT *
+        FROM View_ClassList 
+        WHERE tutor_id = :tutorUserId
       `;
 
       if (status) {
-        query += ` AND c.status = :status`;
+        query += ` AND class_status = :status`;
       }
 
-      query += ` ORDER BY c.created_at DESC`;
+      query += ` ORDER BY created_at DESC`;
 
       const classes = await sequelize.query(query, {
         replacements: { tutorUserId, status: status || null },
         type: QueryTypes.SELECT,
       });
       if (!classes || classes.length === 0) return [];
-      // Lấy lịch học riêng cho từng lớp
 
-      const classIds = classes.map((cls) => cls.class_id);
-      const scheduleQuery = `
-        SELECT *
-        FROM Schedule
-        WHERE class_id IN (${classIds.map(() => "?").join(",")})
-      `;
-      const schedules = await sequelize.query(scheduleQuery, {
-        replacements: classIds,
-        type: QueryTypes.SELECT,
-      });
-
-      // 3️⃣ Ghép lịch học vào class tương ứng
-      const classesWithSchedules = classes.map((cls) => {
-        const clsSchedules = schedules.filter(
-          (sch) => sch.class_id === cls.class_id
-        );
-        return {
-          ...cls,
-          schedules: clsSchedules,
-        };
-      });
-
-      return classesWithSchedules;
+      return classes;
     } catch (error) {
       console.error("❌ [ClassModel.getTutorClasses] Error:", error.message);
       throw error;
@@ -81,8 +52,13 @@ class ClassModel {
       // Lấy thông tin lớp (DISTINCT để không duplicate)
       const query = `
         SELECT *
-        FROM View_TutorClassDetail
-        WHERE class_id = :classId AND tutor_id = :tutorUserId
+      FROM View_TutorClassDetail
+      WHERE class_id = :classId
+        AND (
+              (:tutorUserId IS NOT NULL AND tutor_id = :tutorUserId)
+              OR
+              (:tutorUserId IS NULL AND tutor_id IS NULL)
+            )
       `;
 
       const [classDetail] = await sequelize.query(query, {
@@ -93,23 +69,20 @@ class ClassModel {
       if (!classDetail) {
         throw new Error("Không tìm thấy lớp học hoặc bạn không có quyền xem");
       }
-
-      // Lấy tất cả schedules cho lớp này
-      const scheduleQuery = `
-        SELECT *
+      const schedulesQuery = `
+        SELECT schedule_id, day_of_week,
+        CONVERT(varchar(5), start_time, 108) AS start_time,
+        CONVERT(varchar(5), end_time, 108) AS end_time, class_id, created_at, updated_at, duration_minutes
         FROM Schedule
         WHERE class_id = :classId
+        ORDER BY day_of_week, start_time
       `;
-
-      const schedules = await sequelize.query(scheduleQuery, {
+      const schedules = await sequelize.query(schedulesQuery, {
         replacements: { classId },
         type: QueryTypes.SELECT,
       });
-
-      return {
-        ...classDetail,
-        schedules: schedules || [],
-      };
+      classDetail.schedules = schedules || [];
+      return classDetail;
     } catch (error) {
       console.error("❌ [ClassModel.getClassDetail] Error:", error.message);
       throw error;

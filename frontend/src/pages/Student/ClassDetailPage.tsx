@@ -1,6 +1,6 @@
 // frontend/src/pages/Student/ClassDetailPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useClass } from '../../hooks/useClass';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -14,9 +14,13 @@ import {
   BookOpen,
   Loader2,
 } from 'lucide-react';
-
-const StudentClassDetailPage: React.FC = () => {
-  const navigate = useNavigate();
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+interface ClassDetailPageProps {
+  onTabChange?: (tab: string) => void; // ✅ THÊM: Để navigate trong HomePage
+}
+const StudentClassDetailPage: React.FC<ClassDetailPageProps> = ({ onTabChange }) => {
   const { getClassDetails, loading } = useClass();
   const [classData, setClassData] = useState<any>(null);
 
@@ -24,10 +28,9 @@ const StudentClassDetailPage: React.FC = () => {
     const classId = sessionStorage.getItem('currentClassId');
 
     if (!classId) {
-      navigate('/student/my-classes');
+      console.warn('❌ Không có classId');
       return;
     }
-
     const fetchClassDetails = async () => {
       try {
         const result = await getClassDetails(classId);
@@ -39,13 +42,15 @@ const StudentClassDetailPage: React.FC = () => {
     };
 
     fetchClassDetails();
-
-    // Cleanup: xóa classId khi rời trang
-    return () => {
-      // sessionStorage.removeItem('currentClassId');
-    };
-  }, [getClassDetails, navigate]);
-
+    return () => {};
+  }, [getClassDetails]);
+  const handleBackClick = () => {
+    // ✅ SỬA: Quay lại search tab
+    sessionStorage.removeItem('currentClassId');
+    if (onTabChange) {
+      onTabChange('search');
+    }
+  };
   if (loading || !classData) {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -81,13 +86,13 @@ const StudentClassDetailPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => navigate('/student/my-classes')}
+            onClick={handleBackClick} // ✅ SỬA: navigate(-1) thay vì hardcode route
             className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
           >
             <ArrowLeft className="w-4 h-4" />
             Quay lại
           </button>
-          {getStatusBadge(classDetail.status)}
+          {getStatusBadge(classDetail.class_status)}
         </div>
 
         {/* Class Info */}
@@ -128,10 +133,10 @@ const StudentClassDetailPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-purple-600" />
                 <div>
-                  <p className="text-xs text-gray-500">Ứng Tuyển</p>
+                  <p className="text-xs text-gray-500">Thời gian</p>
                   <p className="font-semibold text-gray-900">
-                    {(classDetail.invited_tutors_count || 0) +
-                      (classDetail.applied_tutors_count || 0)}
+                    {dayjs.utc(classDetail.start_date).format('DD/MM/YYYY')} -{' '}
+                    {dayjs.utc(classDetail.end_date).format('DD/MM/YYYY')}
                   </p>
                 </div>
               </div>
@@ -150,16 +155,6 @@ const StudentClassDetailPage: React.FC = () => {
                 {schedules.map((schedule: any, idx: number) => {
                   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
                   const dayName = dayNames[schedule.day_of_week] || `Ngày ${schedule.day_of_week}`;
-                  const startDate = new Date(schedule.start_date).toLocaleDateString('vi-VN');
-                  const endDate = new Date(schedule.end_date).toLocaleDateString('vi-VN');
-                  const startTime = new Date(schedule.start_date).toLocaleTimeString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
-                  const endTime = new Date(schedule.end_date).toLocaleTimeString('vi-VN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
                   const durationHours = (schedule.duration_minutes / 60).toFixed(1);
 
                   return (
@@ -170,9 +165,8 @@ const StudentClassDetailPage: React.FC = () => {
                       </div>
                       <div className="text-sm text-gray-600">
                         <p>
-                          {startTime} - {endTime}
+                          {schedule.start_time} - {schedule.end_time}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">{startDate}</p>
                       </div>
                     </div>
                   );
@@ -183,7 +177,7 @@ const StudentClassDetailPage: React.FC = () => {
         )}
 
         {/* Tutor Info */}
-        {classDetail.tutor_name ? (
+        {classDetail.tutor_id ? (
           <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 mb-6">
             <CardHeader>
               <CardTitle className="text-green-900">👨‍🏫 Gia Sư Hướng Dẫn</CardTitle>
@@ -244,6 +238,13 @@ const StudentClassDetailPage: React.FC = () => {
                   <p className="text-gray-700">{classDetail.tutor_description}</p>
                 </div>
               )}
+
+              {classDetail.tutor_experience_years && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Kinh nghiệm:</p>
+                  <p className="text-gray-700">{classDetail.tutor_experience_years} năm</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -258,8 +259,9 @@ const StudentClassDetailPage: React.FC = () => {
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate('/student/my-classes')}>
-            ← Quay lại
+          <Button variant="outline" onClick={handleBackClick}>
+            {' '}
+            {/* ✅ SỬA */}← Quay lại
           </Button>
           {classDetail.status === 'recruiting' && <Button variant="default">📧 Mời Gia Sư</Button>}
         </div>

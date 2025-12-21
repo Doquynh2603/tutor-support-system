@@ -13,7 +13,7 @@ const {
   updateStudentProfile,
 } = require("../../controllers/Student/StudentController");
 const ClassController = require("../../controllers/Student/ClassController");
-
+const FavoritesController = require("../../controllers/Student/FavoritesController");
 // ========== STUDENT PROFILE ==========
 router.get("/profile", protect, roleCheck("student"), getStudentProfile);
 router.put("/profile", protect, roleCheck("student"), updateStudentProfile);
@@ -87,18 +87,25 @@ router.post(
   roleCheck("student"),
   ClassController.reviewApplication
 );
-// ✅ Backward compatible endpoints
-router.post(
-  "/class/:class_id/approve",
+
+// Quản lý gia sư yêu thích
+router.get(
+  "/favorites",
   protect,
   roleCheck("student"),
-  ClassController.approveApplicationV2
+  FavoritesController.getFavorites
 );
 
 router.post(
-  "/applications/reject",
+  "/favorites",
   protect,
   roleCheck("student"),
-  ClassController.rejectApplication
+  FavoritesController.addFavorite
+);
+router.delete(
+  "/favorites",
+  protect,
+  roleCheck("student"),
+  FavoritesController.removeFavorite
 );
 module.exports = router;

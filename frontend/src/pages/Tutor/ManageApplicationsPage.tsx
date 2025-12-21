@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { applicationAPI } from '../../services/api';
-import { ChevronDown, ChevronUp, AlertCircle, CheckCircle, XCircle, Check, X } from 'lucide-react';
-import dayjs from 'dayjs';
+import ApplicationTabs from '@/components/TutorApplication/ApplicationTabs'; // ✅ Sửa path nếu cần
+import ApplicationList from '@/components/TutorApplication/ApplicationList'; // ✅ Sửa path nếu cần
+import useSessionFilter from '@/hooks/useSessionFilter';
 
 // ===============================
 // TYPES
 // ===============================
-
+interface ManageApplicationsPageProps {
+  onTabChange?: (tab: string) => void;
+}
 // Lịch học
 export interface AppSchedule {
   day_of_week: number;
@@ -32,19 +35,22 @@ export interface Application {
   applied_date: string;
   withdrawReason: string | null;
   class_status: string;
-  cancellation_reason: string | null; // ✅ Thêm
+  cancellation_reason: string | null;
   hourly_price: number | null;
   requirement: string | null;
   subject_name: string;
-  educationLevel: number;
-  gradeLevel: number;
+  classLevel: number;
+  start_date: string;
+  end_date: string;
   school: string;
   student_name: string;
   student_email: string;
   student_phone: string;
   student_dob: string;
   student_age: number;
+  gradeLevel: number;
   ward_name: string;
+  district_name: string;
   province_name: string;
   schedules: AppSchedule[];
 }
@@ -60,7 +66,7 @@ export interface WithdrawRequest {
 }
 
 export interface ConfirmRequest {
-  applicationId: number;
+  applicationId: string; // ✅ Sửa number → string
   isConfirmed: boolean;
   declineReason?: string | null;
 }
@@ -95,15 +101,15 @@ const TAB_STATUS_MAP: Record<TabType, string[]> = {
   applied: ['applied'],
   approved: ['approved'],
   withdrawn: ['withdrawn'],
-  rejected: ['rejected'],
-  cancelled: ['class_cancelled', 'cancel_invited'],
+  rejected: ['rejected', 'invitation_cancelled'],
+  cancelled: ['class_cancelled'],
 };
 
 // ===============================
 // COMPONENT
 // ===============================
 
-const ManageApplicationsPage = () => {
+const ManageApplicationsPage = ({ onTabChange }: ManageApplicationsPageProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('invited');
 
   const [expandedApplications, setExpandedApplications] = useState<Set<string>>(new Set());
@@ -115,19 +121,13 @@ const ManageApplicationsPage = () => {
   const [declineReason, setDeclineReason] = useState('');
 
   const queryClient = useQueryClient();
-  //chuyển đổi thứ
-  const getDayName = (dayOfWeek: number): string => {
-    const dayNames: Record<number, string> = {
-      0: 'Chủ nhật',
-      1: 'Thứ 2',
-      2: 'Thứ 3',
-      3: 'Thứ 4',
-      4: 'Thứ 5',
-      5: 'Thứ 6',
-      6: 'Thứ 7',
-    };
-    return dayNames[dayOfWeek] || `Ngày ${dayOfWeek}`;
-  };
+  useSessionFilter('targetTab', (value: string) => {
+    if (['invited', 'applied', 'approved', 'withdrawn', 'rejected', 'cancelled'].includes(value)) {
+      console.log('🔄 Đặt activeTab:', value);
+      setActiveTab(value as TabType);
+    }
+  });
+
   // Reset modal states khi đổi tab
   useEffect(() => {
     setWithdrawingId(null);
@@ -224,7 +224,11 @@ const ManageApplicationsPage = () => {
       return newSet;
     });
   };
-
+  const handleViewDetail = (classId: string, applicationId: string) => {
+    if (onTabChange) {
+      onTabChange('class-detail');
+    }
+  };
   const confirmWithdraw = () => {
     if (!withdrawingId) return;
 
@@ -256,33 +260,15 @@ const ManageApplicationsPage = () => {
   };
 
   // ===============================
-  // Helper functions
-  // ===============================
-
-  const getStatusColor = (status: string) => {
-    if (status === 'class_cancelled' || status === 'cancel_invited') {
-      return STATUS_COLORS['orange'];
-    }
-    return STATUS_COLORS[STATUS_LABELS[status as keyof typeof STATUS_LABELS]?.color || 'gray'];
-  };
-
-  const getStatusLabel = (status: string) => {
-    if (status === 'class_cancelled' || status === 'cancel_invited') {
-      return STATUS_LABELS.cancelled.label;
-    }
-    return STATUS_LABELS[status as keyof typeof STATUS_LABELS]?.label || status;
-  };
-
-  // ===============================
   // TABS MAPPING
   // ===============================
   const tabs = [
-    { id: 'invited' as TabType, label: STATUS_LABELS.invited.label },
-    { id: 'applied' as TabType, label: STATUS_LABELS.applied.label },
-    { id: 'approved' as TabType, label: STATUS_LABELS.approved.label },
-    { id: 'withdrawn' as TabType, label: STATUS_LABELS.withdrawn.label },
-    { id: 'rejected' as TabType, label: STATUS_LABELS.rejected.label },
-    { id: 'cancelled' as TabType, label: STATUS_LABELS.cancelled.label },
+    { key: 'invited' as TabType, label: STATUS_LABELS.invited.label },
+    { key: 'applied' as TabType, label: STATUS_LABELS.applied.label },
+    { key: 'approved' as TabType, label: STATUS_LABELS.approved.label },
+    { key: 'withdrawn' as TabType, label: STATUS_LABELS.withdrawn.label },
+    { key: 'rejected' as TabType, label: STATUS_LABELS.rejected.label },
+    { key: 'cancelled' as TabType, label: STATUS_LABELS.cancelled.label },
   ];
 
   // ===============================
@@ -299,303 +285,62 @@ const ManageApplicationsPage = () => {
         </div>
 
         {/* TABS */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:border-blue-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <ApplicationTabs activeTab={activeTab} onTabChange={setActiveTab} tabs={tabs} />
 
-        {/* LOADING */}
-        {isLoading && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Đang tải dữ liệu...</p>
-          </div>
+        {/* LIST */}
+        <ApplicationList
+          applications={applications}
+          expandedApplications={expandedApplications}
+          onToggleExpand={toggleExpand}
+          onWithdraw={(id) => setWithdrawingId(id)}
+          onConfirm={(id) => setConfirmingId(id)}
+          onDecline={(id) => setDecliningId(id)}
+          onViewDetail={handleViewDetail}
+          isLoading={isLoading}
+          error={error?.message || null}
+        />
+
+        {/* ===========================
+            MODALS
+        =========================== */}
+
+        {/* Rút đơn */}
+        {withdrawingId && (
+          <ModalWithdraw
+            reason={withdrawReason}
+            onReasonChange={setWithdrawReason}
+            onCancel={() => {
+              setWithdrawingId(null);
+              setWithdrawReason('');
+            }}
+            onConfirm={confirmWithdraw}
+            isLoading={withdrawMutation.isPending}
+          />
         )}
 
-        {/* ERROR */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <AlertCircle className="text-red-600" size={20} />
-            <p className="text-red-700">{(error as any)?.message || 'Lỗi khi tải dữ liệu'}</p>
-          </div>
+        {/* Xác nhận */}
+        {confirmingId && (
+          <ModalConfirmClass
+            onCancel={() => setConfirmingId(null)}
+            onConfirm={confirmClass}
+            isLoading={confirmMutation.isPending}
+          />
         )}
 
-        {/* LIST APPLICATIONS */}
-        {!isLoading && applications.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <p className="text-gray-500 mb-2">Không có đơn ứng tuyển nào</p>
-            <p className="text-gray-400 text-sm">Hãy tìm và ứng tuyển các lớp học để bắt đầu</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {applications.map((app) => (
-              <div
-                key={app.application_id}
-                className={`border rounded-lg overflow-hidden transition ${getStatusColor(app.status)}`}
-              >
-                {/* Header */}
-                <div
-                  className="p-4 cursor-pointer flex items-center justify-between hover:opacity-80"
-                  onClick={() => toggleExpand(app.application_id)}
-                >
-                  <div>
-                    <h3 className="font-semibold text-lg">{app.subject_name}</h3>
-                    <p className="text-sm opacity-75">
-                      Học viên: {app.student_name} - Lớp {app.gradeLevel}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-1 items-end">
-                      <span className="text-xs font-medium bg-white bg-opacity-50 px-2 py-1 rounded">
-                        {getStatusLabel(app.status)}
-                      </span>
-
-                      {app.isConfirmed === true && (
-                        <span className="text-xs font-medium bg-green-200 text-green-800 px-2 py-1 rounded flex items-center gap-1">
-                          <CheckCircle size={12} /> Đã nhận lớp
-                        </span>
-                      )}
-
-                      {app.isConfirmed === false && (
-                        <span className="text-xs font-medium bg-red-200 text-red-800 px-2 py-1 rounded flex items-center gap-1">
-                          <XCircle size={12} /> Đã từ chối
-                        </span>
-                      )}
-                    </div>
-
-                    {expandedApplications.has(app.application_id) ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <ChevronDown size={20} />
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded */}
-                {expandedApplications.has(app.application_id) && (
-                  <div className="border-t border-current border-opacity-20 p-4 bg-white bg-opacity-30">
-                    {/* Info */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-xs font-semibold opacity-75 mb-1">Địa chỉ:</p>
-                        <p className="text-sm">
-                          {`${app.ward_name}, ${app.province_name}` || 'Không xác định'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold opacity-75 mb-1">Giá/Giờ:</p>
-                        <p className="text-sm font-semibold">{app.hourly_price}k VND</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-xs font-semibold opacity-75 mb-1">Yêu cầu:</p>
-                        <p className="text-sm">{app.requirement || 'Không có yêu cầu'}</p>
-                      </div>
-
-                      {app.withdrawReason && (
-                        <div className="col-span-2">
-                          <p className="text-xs font-semibold opacity-75 mb-1">Lý do rút:</p>
-                          <p className="text-sm">{app.withdrawReason}</p>
-                        </div>
-                      )}
-
-                      {/* ✅ Hiển thị lý do hủy lớp */}
-                      {(app.status === 'class_cancelled' || app.status === 'cancel_invited') &&
-                        app.cancellation_reason && (
-                          <div className="col-span-2 bg-orange-100 border border-orange-300 rounded p-3">
-                            <p className="text-xs font-semibold text-orange-800 mb-1">
-                              🗑️ Lý do phụ huynh hủy lớp:
-                            </p>
-                            <p className="text-sm text-orange-700">{app.cancellation_reason}</p>
-                          </div>
-                        )}
-                    </div>
-
-                    {/* ✅ Hiển thị thông báo khi lớp bị hủy */}
-                    {(app.status === 'class_cancelled' || app.status === 'cancel_invited') && (
-                      <div className="col-span-2 mb-4 p-3 bg-orange-100 border border-orange-300 rounded">
-                        <p className="text-xs font-semibold text-orange-800">
-                          🗑️ Lớp học này đã bị phụ huynh hủy
-                        </p>
-                        <p className="text-xs text-orange-700 mt-1">
-                          Trạng thái: {getStatusLabel(app.status)}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Schedules */}
-                    {app.schedules && app.schedules.length > 0 && (
-                      <div className="mb-4 border-t border-current border-opacity-20 pt-4">
-                        <p className="text-xs font-semibold opacity-75 mb-2">Lịch học:</p>
-                        <div className="space-y-2">
-                          {app.schedules.map((sch: any, idx: number) => (
-                            <div key={idx} className="text-sm flex items-center gap-2">
-                              <span className="bg-white bg-opacity-50 px-2 py-1 rounded text-xs">
-                                {getDayName(sch.day_of_week)}
-                              </span>
-                              <span>
-                                {dayjs(sch.start_time).format('HH:mm')} -{' '}
-                                {dayjs(sch.end_time).format('HH:mm')}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ACTION BUTTONS */}
-                    <div className="flex gap-2 flex-wrap pt-4 border-t border-current border-opacity-20">
-                      {/* Xác nhận lời mời (invited) */}
-                      {app.status === 'invited' && app.isConfirmed === null && (
-                        <div className="w-full flex gap-2">
-                          <button
-                            onClick={() => setConfirmingId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-green-500 text-gray-900 font-semibold rounded flex items-center justify-center gap-1"
-                          >
-                            <Check size={16} /> Đồng ý tham gia
-                          </button>
-
-                          <button
-                            onClick={() => setDecliningId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-orange-500 text-gray-900 font-semibold rounded flex items-center justify-center gap-1"
-                          >
-                            <X size={16} /> Từ chối
-                          </button>
-
-                          <button
-                            onClick={() => setWithdrawingId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-red-500 text-gray-900 font-semibold rounded"
-                          >
-                            🚫 Rút đơn
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Rút đơn */}
-                      {(app.status === 'invited' ||
-                        app.status === 'applied' ||
-                        app.status === 'approved') &&
-                        app.isConfirmed !== true && (
-                          <button
-                            onClick={() => setWithdrawingId(app.application_id)}
-                            className="w-full px-3 py-2 bg-red-500 text-gray-900 font-semibold rounded"
-                            disabled={withdrawMutation.isPending}
-                          >
-                            🚫 Rút đơn
-                          </button>
-                        )}
-
-                      {/* Xác nhận / Từ chối */}
-                      {app.status === 'approved' && app.isConfirmed === null && (
-                        <div className="w-full flex gap-2">
-                          <button
-                            onClick={() => setConfirmingId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-green-500 text-gray-900 font-semibold rounded flex items-center justify-center gap-1"
-                          >
-                            <Check size={16} /> Nhận lớp
-                          </button>
-
-                          <button
-                            onClick={() => setDecliningId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-orange-500 text-gray-900 font-semibold rounded flex items-center justify-center gap-1"
-                          >
-                            <X size={16} /> Từ chối
-                          </button>
-
-                          <button
-                            onClick={() => setWithdrawingId(app.application_id)}
-                            className="flex-1 px-3 py-2 bg-red-500 text-gray-900 font-semibold rounded"
-                          >
-                            🚫 Rút đơn
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Confirmed badge */}
-                      {app.isConfirmed === true && (
-                        <div className="w-full px-3 py-2 bg-green-100 text-green-700 rounded text-sm text-center flex items-center justify-center gap-2">
-                          <CheckCircle size={16} /> Đã xác nhận nhận lớp
-                        </div>
-                      )}
-
-                      {app.isConfirmed === false && (
-                        <div className="w-full">
-                          <div className="px-3 py-2 bg-red-100 text-red-700 rounded text-sm text-center flex items-center justify-center gap-2">
-                            <XCircle size={16} /> Đã từ chối lớp
-                          </div>
-                          {app.declineReason && (
-                            <p className="text-xs text-red-600 mt-2 italic">
-                              Lý do: {app.declineReason}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* ✅ Disabled state khi lớp bị hủy */}
-                      {(app.status === 'class_cancelled' || app.status === 'cancel_invited') && (
-                        <div className="w-full px-3 py-2 bg-orange-100 text-orange-700 rounded text-sm text-center font-medium">
-                          🗑️ Lớp học này đã bị hủy
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+        {/* Từ chối */}
+        {decliningId && (
+          <ModalDecline
+            reason={declineReason}
+            onReasonChange={setDeclineReason}
+            onCancel={() => {
+              setDecliningId(null);
+              setDeclineReason('');
+            }}
+            onConfirm={declineClass}
+            isLoading={confirmMutation.isPending}
+          />
         )}
       </div>
-
-      {/* ===========================
-          MODALS
-      =========================== */}
-
-      {/* Rút đơn */}
-      {withdrawingId && (
-        <ModalWithdraw
-          reason={withdrawReason}
-          onReasonChange={setWithdrawReason}
-          onCancel={() => {
-            setWithdrawingId(null);
-            setWithdrawReason('');
-          }}
-          onConfirm={confirmWithdraw}
-          isLoading={withdrawMutation.isPending}
-        />
-      )}
-
-      {/* Xác nhận */}
-      {confirmingId && (
-        <ModalConfirmClass
-          onCancel={() => setConfirmingId(null)}
-          onConfirm={confirmClass}
-          isLoading={confirmMutation.isPending}
-        />
-      )}
-
-      {/* Từ chối */}
-      {decliningId && (
-        <ModalDecline
-          reason={declineReason}
-          onReasonChange={setDeclineReason}
-          onCancel={() => {
-            setDecliningId(null);
-            setDeclineReason('');
-          }}
-          onConfirm={declineClass}
-          isLoading={confirmMutation.isPending}
-        />
-      )}
     </div>
   );
 };

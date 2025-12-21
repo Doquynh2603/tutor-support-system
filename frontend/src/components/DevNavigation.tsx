@@ -1,140 +1,111 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { logout } from '../store/slices/authSlice-real';
-import { clearClasses } from '../store/slices/classesSlice';
-import { RootState, AppDispatch } from '../store';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
+import Sidebar from '../components/Sidebar';
+import Header from '../components/Header';
+import NotificationsSection from '../components/Notifications/NotificationSession';
+import SearchPage from '../pages/Tutor/SearchPage';
+import ManageApplicationsPage from '../pages/Tutor/ManageApplicationsPage';
+import TutorProfileManager from '../components/TutorProfile/TutorProfileManager';
+import TutorClassesList from '../components/TutorClasses/TutorClassesList';
+import StudentProfileManager from '../components/StudentProfile/StudentProfileManager';
+import CreateClassPage from '../components/Student/CreateClassPage';
+import ManageClassesPage from '../pages/Student/ManageClassesPage';
+import FavoritesPage from '../pages/Student/FavoritesPage';
 
-const DevNavigation: React.FC = () => {
-  const dispatch = useDispatch<AppDispatch>();
-  const navigate = useNavigate();
+type TabType =
+  | 'dashboard'
+  | 'search'
+  | 'applications'
+  | 'profile'
+  | 'classes'
+  | 'notifications'
+  | 'create-class'
+  | 'my-classes'
+  | 'favorites';
+
+export default function HomePage(): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'dashboard');
 
   const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    dispatch(clearClasses());
-    navigate('/login', { replace: true });
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as TabType);
+    setSearchParams({ tab });
   };
 
-  const tutorMenu = (
-    <>
-      <Link
-        to="/search"
-        className="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded transition-colors"
-      >
-        🔍 Tìm kiếm lớp
-      </Link>
-      <Link
-        to="/applications"
-        className="bg-orange-500 hover:bg-orange-400 px-4 py-2 rounded transition-colors"
-      >
-        📋 Quản lý ứng tuyển
-      </Link>
-      <Link
-        to="/profile"
-        className="bg-green-500 hover:bg-green-400 px-4 py-2 rounded transition-colors"
-      >
-        👤 Hồ sơ
-      </Link>
-      <Link
-        to="/classes"
-        className="bg-purple-500 hover:bg-purple-400 px-4 py-2 rounded transition-colors"
-      >
-        📚 Quản Lý Lớp Học
-      </Link>
-    </>
-  );
-
-  const studentMenu = (
-    <>
-      <Link
-        to="/student/my-classes"
-        className="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded transition-colors"
-      >
-        📚 Quản lý lớp học
-      </Link>
-      <Link
-        to="/student/create-class"
-        className="bg-orange-500 hover:bg-orange-400 px-4 py-2 rounded transition-colors"
-      >
-        ➕ Tạo lớp mới
-      </Link>
-      <Link
-        to="/student-profile"
-        className="bg-green-500 hover:bg-green-400 px-4 py-2 rounded transition-colors"
-      >
-        👤 Hồ sơ
-      </Link>
-    </>
-  );
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'search':
+        return <SearchPage />;
+      case 'applications':
+        return <ManageApplicationsPage />;
+      case 'profile':
+        return user?.role === 'tutor' ? <TutorProfileManager /> : <StudentProfileManager />;
+      case 'classes':
+        return user?.role === 'tutor' ? <TutorClassesList /> : <ManageClassesPage />;
+      case 'create-class':
+        return <CreateClassPage />;
+      case 'my-classes':
+        return <ManageClassesPage />;
+      case 'favorites':
+        return <FavoritesPage />;
+      case 'notifications':
+        return <NotificationsSection />;
+      case 'dashboard':
+      default:
+        return (
+          <div>
+            <h2 className="text-4xl font-bold mb-8 text-gray-800">Chào mừng đến TSS</h2>
+            <div className="bg-white rounded-lg p-6 shadow">
+              <p className="text-gray-600 mb-4">
+                Hệ thống hỗ trợ gia sư - Kết nối gia sư và học viên
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-900 mb-2">📚 Quản lý lớp học</h3>
+                  <p className="text-sm text-blue-700">Tạo và quản lý các lớp học của bạn</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-900 mb-2">👥 Kết nối</h3>
+                  <p className="text-sm text-green-700">Tìm kiếm và kết nối với gia sư/học viên</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-purple-900 mb-2">🔔 Thông báo</h3>
+                  <p className="text-sm text-purple-700">Nhận cập nhật về lớp học và ứng tuyển</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
-    <nav className="bg-blue-600 text-white p-4 mb-6">
-      <div className="container mx-auto">
-        <h1 className="text-xl font-bold mb-4">Tutor Support System</h1>
+    <div className="h-screen flex flex-col">
+      {/* Header cố định - Phần 2 */}
+      <Header />
 
-        {user && (
-          <div className="mb-4 p-3 bg-blue-700 rounded">
-            <p className="text-sm">
-              <strong>Người dùng:</strong> {user.name} (ID: {user.user_id})
-              <span
-                className={`ml-2 px-2 py-1 rounded text-xs ${isAuthenticated ? 'bg-green-500' : 'bg-red-500'}`}
-              >
-                {isAuthenticated ? '✅ Đã đăng nhập' : '❌ Chưa đăng nhập'}
-              </span>
-            </p>
-            <p className="text-sm">
-              <strong>Vai trò:</strong>{' '}
-              {user.role === 'tutor'
-                ? '👨‍🏫 Gia sư'
-                : user.role === 'student'
-                  ? '👨‍🎓 Học viên'
-                  : '❓ Không xác định'}
-            </p>
-            <p className="text-sm">
-              <strong>Email:</strong> {user.email}
-            </p>
-          </div>
-        )}
+      {/* Main Content với Sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar - Phần trái */}
+        <Sidebar onTabChange={handleTabChange} activeTab={activeTab} />
 
-        <div className="flex flex-wrap gap-4">
-          <Link
-            to="/"
-            className="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded transition-colors"
-          >
-            🏠 Trang chủ
-          </Link>
-
-          {isAuthenticated && user?.role === 'tutor' && tutorMenu}
-          {isAuthenticated && user?.role === 'student' && studentMenu}
-
-          {isAuthenticated ? (
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 hover:bg-red-400 px-4 py-2 rounded transition-colors"
-            >
-              🚪 Đăng xuất
-            </button>
-          ) : (
-            <Link
-              to="/login"
-              className="bg-orange-500 hover:bg-orange-400 px-4 py-2 rounded transition-colors"
-            >
-              🔐 Đăng nhập
-            </Link>
-          )}
+        {/* Content Area - Phần 1 */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-auto p-8 bg-gray-50">{renderContent()}</div>
         </div>
-
-        {isAuthenticated && (
-          <div className="mt-4 text-sm text-blue-200">
-            ✅ <strong>Đã xác thực:</strong> Token được lưu trong localStorage
-          </div>
-        )}
       </div>
-    </nav>
+    </div>
   );
-};
-
-export default DevNavigation;
+}

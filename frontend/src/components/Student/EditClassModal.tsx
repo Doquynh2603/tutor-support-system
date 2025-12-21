@@ -11,6 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useClass } from '../../hooks/useClass';
 import { ClassDetail } from '../../types';
 
@@ -33,6 +40,7 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
     description: '',
     requirement: '',
     hourly_price: 0,
+    classLevel: 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -44,6 +52,7 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
         description: classData.description || '',
         requirement: classData.requirement || '',
         hourly_price: classData.hourly_price || 0,
+        classLevel: classData.classLevel || 0,
       });
       setErrors({});
     }
@@ -61,19 +70,35 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
     }
   };
 
+  // ✅ THÊM: Handler cho Select classLevel
+  const handleClassLevelChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      classLevel: Number(value),
+    }));
+    // Clear error for this field
+    if (errors.classLevel) {
+      setErrors((prev) => ({ ...prev, classLevel: '' }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Vui lòng nhập mô tả lớp học';
-    }
+    // if (!formData.description.trim()) {
+    //   newErrors.description = 'Vui lòng nhập mô tả lớp học';
+    // }
 
-    if (!formData.requirement.trim()) {
-      newErrors.requirement = 'Vui lòng nhập yêu cầu gia sư';
-    }
+    // if (!formData.requirement.trim()) {
+    //   newErrors.requirement = 'Vui lòng nhập yêu cầu gia sư';
+    // }
 
     if (formData.hourly_price <= 0) {
       newErrors.hourly_price = 'Học phí phải lớn hơn 0';
+    }
+
+    if (formData.classLevel <= 0) {
+      newErrors.classLevel = 'Vui lòng chọn cấp lớp';
     }
 
     setErrors(newErrors);
@@ -114,57 +139,85 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>✏️ Sửa thông tin lớp học</DialogTitle>
-          <DialogDescription>
-            Cập nhật thông tin chi tiết của lớp học. Tất cả gia sư ứng tuyển/được mời sẽ được thông
-            báo về những thay đổi này.
+          <DialogDescription className="text-sm">
+            Cập nhật thông tin lớp học. Gia sư sẽ được thông báo về những thay đổi.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-3 py-2">
           {/* Subject - Display Only */}
-          <div className="space-y-2">
-            <Label>Môn học</Label>
-            <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+          <div className="space-y-1">
+            <Label className="text-sm">Môn học</Label>
+            <div className="px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm">
               {classData?.subject_name || 'Không xác định'}
             </div>
           </div>
 
+          {/* ✅ THÊM: Class Level Select */}
+          <div className="space-y-1">
+            <Label htmlFor="classLevel" className="text-sm">
+              Cấp lớp
+            </Label>
+            <Select
+              value={formData.classLevel ? String(formData.classLevel) : ''}
+              onValueChange={handleClassLevelChange}
+            >
+              <SelectTrigger className={errors.classLevel ? 'border-red-500' : ''}>
+                <SelectValue placeholder="Chọn cấp lớp (1-12)" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((level) => (
+                  <SelectItem key={level} value={String(level)}>
+                    Lớp {level}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.classLevel && <p className="text-xs text-red-500">{errors.classLevel}</p>}
+          </div>
+
           {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Mô tả lớp học</Label>
+          <div className="space-y-1">
+            <Label htmlFor="description" className="text-sm">
+              Mô tả lớp học
+            </Label>
             <Textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
               placeholder="Nhập mô tả chi tiết về lớp học..."
-              rows={4}
-              className={errors.description ? 'border-red-500' : ''}
+              rows={3}
+              className={`text-sm ${errors.description ? 'border-red-500' : ''}`}
             />
-            {errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+            {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
           </div>
 
           {/* Requirement */}
-          <div className="space-y-2">
-            <Label htmlFor="requirement">Yêu cầu gia sư</Label>
+          <div className="space-y-1">
+            <Label htmlFor="requirement" className="text-sm">
+              Yêu cầu gia sư
+            </Label>
             <Textarea
               id="requirement"
               name="requirement"
               value={formData.requirement}
               onChange={handleChange}
               placeholder="Nhập yêu cầu với gia sư (kinh nghiệm, trình độ, etc.)..."
-              rows={4}
-              className={errors.requirement ? 'border-red-500' : ''}
+              rows={3}
+              className={`text-sm ${errors.requirement ? 'border-red-500' : ''}`}
             />
-            {errors.requirement && <p className="text-sm text-red-500">{errors.requirement}</p>}
+            {errors.requirement && <p className="text-xs text-red-500">{errors.requirement}</p>}
           </div>
 
           {/* Hourly Price */}
-          <div className="space-y-2">
-            <Label htmlFor="hourly_price">Học phí (VNĐ/giờ)</Label>
+          <div className="space-y-1">
+            <Label htmlFor="hourly_price" className="text-sm">
+              Học phí (VNĐ/giờ)
+            </Label>
             <Input
               id="hourly_price"
               type="number"
@@ -173,20 +226,19 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
               onChange={handleChange}
               placeholder="Nhập học phí..."
               min="0"
-              className={errors.hourly_price ? 'border-red-500' : ''}
+              className={`text-sm ${errors.hourly_price ? 'border-red-500' : ''}`}
             />
-            {errors.hourly_price && <p className="text-sm text-red-500">{errors.hourly_price}</p>}
+            {errors.hourly_price && <p className="text-xs text-red-500">{errors.hourly_price}</p>}
             {formData.hourly_price > 0 && (
               <p className="text-xs text-muted-foreground">
-                Ước tính chi phí: {(formData.hourly_price * 1.5).toLocaleString('vi-VN')} VNĐ (cho
-                1.5 giờ)
+                Ước tính: {(formData.hourly_price * 1.5).toLocaleString('vi-VN')} VNĐ (1.5 giờ)
               </p>
             )}
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+        <DialogFooter className="gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} size="sm">
             Hủy
           </Button>
           <Button
@@ -194,8 +246,9 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
             onClick={handleSubmit}
             disabled={isLoading}
             className="bg-blue-600 hover:bg-blue-700"
+            size="sm"
           >
-            {isLoading ? '⏳ Đang lưu...' : '💾 Lưu thay đổi'}
+            {isLoading ? '⏳ Đang lưu...' : '💾 Lưu'}
           </Button>
         </DialogFooter>
       </DialogContent>

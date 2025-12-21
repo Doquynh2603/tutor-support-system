@@ -19,6 +19,11 @@ const ViewTutorsPage: React.FC = () => {
   );
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // ✅ THÊM STATE CHO REJECT DIALOG
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectingApplicationId, setRejectingApplicationId] = useState<string | null>(null);
+
   const { getApplicationsByClass, getTutorDetail, reviewApplication, loading, error } =
     useApplications();
 
@@ -103,21 +108,26 @@ const ViewTutorsPage: React.FC = () => {
     }
   };
 
-  // ✅ Từ chối gia sư
-  const handleReject = async (applicationId: string) => {
-    const reason = prompt('📝 Nhập lý do từ chối:');
-    if (reason === null) {
-      return;
-    }
+  // ✅ SỬA: Từ chối gia sư - Mở dialog thay vì prompt
+  const handleReject = (applicationId: string) => {
+    setRejectingApplicationId(applicationId);
+    setRejectReason(''); // Reset reason
+    setShowRejectDialog(true);
+  };
 
-    if (reason.trim() === '') {
+  // ✅ THÊM: Xử lý submit reject dialog
+  const handleRejectSubmit = async () => {
+    if (rejectReason.trim() === '') {
       alert('⚠️ Vui lòng nhập lý do từ chối');
       return;
     }
 
+    if (!rejectingApplicationId) return;
+
     try {
-      await reviewApplication(applicationId, 'reject', reason);
+      await reviewApplication(rejectingApplicationId, 'reject', rejectReason);
       alert('✅ Từ chối gia sư thành công!');
+      setShowRejectDialog(false);
       setShowDetailModal(false);
 
       // Reload danh sách
@@ -131,8 +141,13 @@ const ViewTutorsPage: React.FC = () => {
       alert(`❌ Lỗi khi từ chối gia sư: ${error}`);
     }
   };
-  console.log('đơn ứng tuyển lấy được từ backend', applications);
-  console.log('thông tin gia sư được chọn lấy từ backend', selectedTutorDetail);
+
+  // ✅ THÊM: Cancel reject dialog
+  const handleRejectCancel = () => {
+    setShowRejectDialog(false);
+    setRejectReason('');
+    setRejectingApplicationId(null);
+  };
 
   // ✅ Tìm application dựa trên tutor id
   const getApplicationByTutorId = (tutorId: string) => {
@@ -148,7 +163,7 @@ const ViewTutorsPage: React.FC = () => {
             onClick={() => navigate(-1)}
             className="text-blue-600 hover:text-blue-800 mb-2 flex items-center gap-1 text-sm font-medium"
           >
-            ← Quay lại
+            Quay lại
           </button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">👨‍🏫 Danh sách gia sư ứng tuyển</h1>
           <p className="text-gray-600">Chọn gia sư phù hợp cho lớp học của bạn</p>
@@ -244,6 +259,39 @@ const ViewTutorsPage: React.FC = () => {
           onClose={() => setShowDetailModal(false)}
           isLoading={loading}
         />
+      )}
+
+      {/* ========== REJECT DIALOG MODAL ========== */}
+      {showRejectDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">📝 Từ chối gia sư</h3>
+            <p className="text-gray-600 mb-4">Vui lòng nhập lý do từ chối:</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Nhập lý do từ chối..."
+              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              rows={4}
+              autoFocus
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleRejectCancel}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium transition"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-medium transition"
+                disabled={loading}
+              >
+                {loading ? 'Đang xử lý...' : 'Từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

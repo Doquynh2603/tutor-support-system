@@ -4,6 +4,7 @@
 
 const SearchModel = require("../../models/Tutor/SearchModel");
 const ApplicationModel = require("../../models/Tutor/ApplicationModel");
+const ClassModel = require("../../models/Tutor/ClassModel");
 
 /**
  * Tìm kiếm lớp học
@@ -17,49 +18,29 @@ exports.searchClasses = async (req, res) => {
       min_hourly_price,
       max_hourly_price,
       subject_id,
-      gradeLevel,
-      provinceId,
-      districtId,
-      wardId,
+      classLevel,
+      province_id,
     } = req.query;
     const tutorUserId = req.user?.user_id;
     console.log("Tutor User ID:", tutorUserId);
     console.log("[searchClasses] request: ", req.query);
 
     const filters = {
-      status: "recruiting",
       min_hourly_price,
       max_hourly_price,
       subject_id,
-      gradeLevel: gradeLevel,
-      provinceId,
-      districtId,
-      wardId,
+      classLevel,
+      province_id,
       tutorUserId: tutorUserId || null,
       classId: null,
     };
     console.log("📡 [SearchModel] Calling searchClasses with filters...");
     const results = await SearchModel.searchClasses(filters);
     console.log("dữ liệu lấy được từ database: ", results);
-    const classes = results.map((c) => ({
-      class_id: c.class_id,
-      subject_name: c.subject_name,
-      gradeLevel: c.gradeLevel,
-      province_name: c.province_name,
-      hourly_rate: parseInt(c.hourly_price) || 0,
-      hours_per_week:
-        c.schedules?.reduce(
-          (total, s) => total + (s.duration_minutes || 0),
-          0
-        ) / 60 || 0, // Tính tổng giờ/tuần
-      application_status: c.application_status,
-      requirement: c.requirement,
-      schedules: c.schedules,
-    }));
     res.status(200).json({
       success: true,
-      data: classes,
-      count: classes.length,
+      data: results,
+      count: results.length,
     });
   } catch (error) {
     console.error("❌ [searchClasses]:", error.message);
@@ -79,13 +60,10 @@ exports.getClassDetail = async (req, res) => {
     const { classId } = req.params;
     console.log(`📚 [getClassDetail] Class: ${classId}`);
 
-    const result = await SearchModel.searchClasses({
-      tutorUserId: null,
-      classId,
-    });
+    const result = await ClassModel.getClassDetail(classId, null);
     res.status(200).json({
       success: true,
-      data: result[0],
+      data: result,
     });
   } catch (error) {
     console.error("❌ [getClassDetail]:", error.message);

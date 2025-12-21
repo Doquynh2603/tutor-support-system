@@ -57,3 +57,29 @@
     @apply bg-background text-foreground;
   }
 }
+/* ============================================
+   NOTIFICATION HIGHLIGHT STYLES
+   ============================================ */
+
+.highlighted {
+  animation: highlightAnimation 2s ease-in-out;
+}
+
+@keyframes highlightAnimation {
+  0% {
+    background-color: #fff3cd !important;
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7) !important;
+  }
+  50% {
+    background-color: #ffe69c !important;
+    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0.3) !important;
+  }
+  100% {
+    background-color: transparent !important;
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0) !important;
+  }
+}
+
+[data-expandable] {
+  cursor: pointer;
+}

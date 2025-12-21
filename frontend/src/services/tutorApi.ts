@@ -15,11 +15,11 @@ export const tutorProfileAPI = {
     return apiService.put('/tutor/profile', data);
   },
 
-  getSubjects: async (): Promise<TutorSubject[]> => {
-    return apiService.get('/tutor/subjects');
-  },
+  // getSubjects: async (): Promise<TutorSubject[]> => {
+  //   return apiService.get('/tutor/subjects');
+  // },
 
-  updateSubjects: async (subjects: TutorSubject[]): Promise<TutorSubject[]> => {
-    return apiService.put('/tutor/subjects', { subjects });
-  },
+  // updateSubjects: async (subjects: TutorSubject[]): Promise<TutorSubject[]> => {
+  //   return apiService.put('/tutor/subjects', { subjects });
+  // },
 };

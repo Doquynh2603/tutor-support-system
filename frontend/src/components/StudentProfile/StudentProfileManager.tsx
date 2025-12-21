@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useQuery } from '@tanstack/react-query';
+import { locationAPI } from '../../services/api';
 import { useStudentProfile, useUpdateStudentProfile } from '../../hooks/useStudentProfile';
-import { useProvinces, useDistricts, useWards } from '../../hooks/useProvinces';
 import {
   selectIsEditingProfile,
   selectIsSubmittingProfile,
@@ -19,7 +20,8 @@ import { Loader2, AlertCircle, CheckCircle, X, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import StudentProfileDisplay from './StudentProfileDisplay';
 import StudentProfileForm from './StudentProfileForm';
-import { Province, Ward, StudentProfile } from '@/types';
+import { StudentProfile } from '@/types';
+
 const StudentProfileManager: React.FC = () => {
   const dispatch = useDispatch();
   const isEditing = useSelector(selectIsEditingProfile);
@@ -27,8 +29,8 @@ const StudentProfileManager: React.FC = () => {
   const validationErrors = useSelector(selectValidationErrors);
   const notification = useSelector(selectNotification);
 
-  const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null);
-  const [selectedDistrictId, setSelectedDistrictId] = useState<number | null>(null);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null); // ✅ SỬA: Dùng string
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string | null>(null); // ✅ SỬA: Dùng string
 
   const {
     data: profile,
@@ -37,32 +39,158 @@ const StudentProfileManager: React.FC = () => {
     refetch: refetchProfile,
   } = useStudentProfile();
 
-  const { data: provinces = [], isLoading: isLoadingProvinces } = useProvinces(isEditing);
+  // ✅ SỬA: Handle UUID string IDs
+  const { data: provinces = [], isLoading: isLoadingProvinces } = useQuery({
+    queryKey: ['provinces'],
+    queryFn: async () => {
+      try {
+        console.log('🚀 Fetching provinces...');
+        const response = await locationAPI.getProvinces();
+        console.log('=== PROVINCES RESPONSE ===', response);
 
-  // Lấy districts theo province
-  const shouldFetchDistricts = isEditing && selectedProvinceId !== null;
-  const { data: districts = [], isLoading: isLoadingDistricts } = useDistricts(
-    selectedProvinceId?.toString() || null,
-    shouldFetchDistricts
-  );
+        const data = Array.isArray(response) ? response : response?.data || response;
 
-  // Lấy wards theo district
-  const shouldFetchWards = isEditing && selectedDistrictId !== null;
-  const { data: wards = [], isLoading: isLoadingWards } = useWards(
-    selectedDistrictId,
-    shouldFetchWards
-  );
+        if (!Array.isArray(data)) {
+          console.warn('❌ Provinces data is not array:', typeof data);
+          return [];
+        }
+
+        const cleaned = data
+          .filter((p) => {
+            if (!p || !p.id || !p.name) {
+              console.warn('⚠️ Invalid province:', p);
+              return false;
+            }
+            // ✅ SỬA: Trim UUID string và validate
+            const id = String(p.id).trim();
+            if (!id || id.length === 0) {
+              console.warn('⚠️ Province id is empty');
+              return false;
+            }
+            if (typeof p.name !== 'string' || p.name.trim().length === 0) {
+              console.warn('⚠️ Province name is invalid:', p.name);
+              return false;
+            }
+            return true;
+          })
+          .map((p) => ({
+            id: String(p.id).trim(), // ✅ SỬA: Giữ UUID as string
+            name: String(p.name).trim(),
+          }));
+
+        console.log('=== FINAL PROVINCES ===', cleaned);
+        console.log('✅ Total cleaned provinces:', cleaned.length);
+        return cleaned;
+      } catch (error) {
+        console.error('❌ Error fetching provinces:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+    retry: 2,
+  });
+
+  // ✅ SỬA: Fetch districts với UUID
+  const { data: districts = [], isLoading: isLoadingDistricts } = useQuery({
+    queryKey: ['districts', selectedProvinceId],
+    queryFn: async () => {
+      if (!selectedProvinceId) {
+        console.log('⏭️ Skipping districts fetch: no provinceId');
+        return [];
+      }
+      try {
+        console.log('🚀 Fetching districts for province:', selectedProvinceId);
+        const response = await locationAPI.getDistricts(selectedProvinceId);
+        console.log('=== DISTRICTS RESPONSE ===', response);
+
+        const data = Array.isArray(response) ? response : response?.data || response;
+
+        if (!Array.isArray(data)) {
+          console.warn('❌ Districts data is not array');
+          return [];
+        }
+
+        const cleaned = data
+          .filter((d) => {
+            if (!d || !d.id || !d.name) return false;
+            const id = String(d.id).trim();
+            if (!id) return false;
+            if (typeof d.name !== 'string' || d.name.trim().length === 0) return false;
+            return true;
+          })
+          .map((d) => ({
+            id: String(d.id).trim(),
+            name: String(d.name).trim(),
+            province_id: d.province_id ? String(d.province_id).trim() : null,
+          }));
+
+        console.log('=== FINAL DISTRICTS ===', cleaned);
+        console.log('✅ Total cleaned districts:', cleaned.length);
+        return cleaned;
+      } catch (error) {
+        console.error('❌ Error fetching districts:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedProvinceId,
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+    retry: 2,
+  });
+
+  // ✅ SỬA: Fetch wards với UUID
+  const { data: wards = [], isLoading: isLoadingWards } = useQuery({
+    queryKey: ['wards', selectedDistrictId],
+    queryFn: async () => {
+      if (!selectedDistrictId) {
+        console.log('⏭️ Skipping wards fetch: no districtId');
+        return [];
+      }
+      try {
+        console.log('🚀 Fetching wards for district:', selectedDistrictId);
+        const response = await locationAPI.getWards(selectedDistrictId);
+        console.log('=== WARDS RESPONSE ===', response);
+
+        const data = Array.isArray(response) ? response : response?.data || response;
+
+        if (!Array.isArray(data)) {
+          console.warn('❌ Wards data is not array');
+          return [];
+        }
+
+        const cleaned = data
+          .filter((w) => {
+            if (!w || !w.id || !w.name) return false;
+            const id = String(w.id).trim();
+            if (!id) return false;
+            if (typeof w.name !== 'string' || w.name.trim().length === 0) return false;
+            return true;
+          })
+          .map((w) => ({
+            id: String(w.id).trim(),
+            name: String(w.name).trim(),
+            district_id: w.district_id ? String(w.district_id).trim() : null,
+          }));
+
+        console.log('=== FINAL WARDS ===', cleaned);
+        console.log('✅ Total cleaned wards:', cleaned.length);
+        return cleaned;
+      } catch (error) {
+        console.error('❌ Error fetching wards:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedDistrictId,
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
+    retry: 2,
+  });
 
   const updateProfileMutation = useUpdateStudentProfile();
   const isMutationPending = updateProfileMutation.status === 'pending';
 
-  // Tính toán loading state
   const isInitialLoading = isLoadingProfile && !profile;
-  const isFormLoading =
-    isEditing &&
-    (isLoadingProvinces ||
-      (shouldFetchDistricts && isLoadingDistricts) ||
-      (shouldFetchWards && isLoadingWards));
 
   // Auto-hide notification
   useEffect(() => {
@@ -81,29 +209,32 @@ const StudentProfileManager: React.FC = () => {
     }
   }, [profile, isEditing, dispatch]);
 
-  // Khi bắt đầu chỉnh sửa, set province từ profile
+  // ✅ SỬA: Set province/district từ profile (UUID string)
   useEffect(() => {
-    if (isEditing && profile?.province_id != null) {
-      const provinceId =
-        typeof profile.province_id === 'string'
-          ? parseInt(profile.province_id, 10)
-          : Number(profile.province_id);
-      if (!isNaN(provinceId)) {
-        setSelectedProvinceId(provinceId);
-      }
-    }
+    if (isEditing && profile) {
+      console.log('Setting province/district from profile:', profile);
 
-    // Set district từ profile nếu có
-    if (isEditing && profile?.district_id != null) {
-      const districtId =
-        typeof profile.district_id === 'string'
-          ? parseInt(profile.district_id, 10)
-          : Number(profile.district_id);
-      if (!isNaN(districtId)) {
-        setSelectedDistrictId(districtId);
+      if (profile.province_id) {
+        const provinceId = String(profile.province_id).trim();
+        if (provinceId.length > 0) {
+          setSelectedProvinceId(provinceId);
+          console.log('✅ Set province:', provinceId);
+        }
+      } else {
+        setSelectedProvinceId(null);
+      }
+
+      if (profile.district_id) {
+        const districtId = String(profile.district_id).trim();
+        if (districtId.length > 0) {
+          setSelectedDistrictId(districtId);
+          console.log('✅ Set district:', districtId);
+        }
+      } else {
+        setSelectedDistrictId(null);
       }
     }
-  }, [isEditing, profile?.province_id, profile?.district_id]);
+  }, [isEditing]);
 
   const handleEdit = useCallback(() => {
     dispatch(setEditingProfile(true));
@@ -125,7 +256,7 @@ const StudentProfileManager: React.FC = () => {
       setSelectedProvinceId(null);
       setSelectedDistrictId(null);
     } catch (error) {
-      console.error('Lỗi cập nhật profile:', error);
+      console.error('Error updating profile:', error);
     }
   };
 
@@ -133,74 +264,24 @@ const StudentProfileManager: React.FC = () => {
     dispatch(hideNotification());
   }, [dispatch]);
 
-  const handleProvinceChange = useCallback((provinceId: number | string | null) => {
-    const id = provinceId !== null ? Number(provinceId) : null;
-    if (id === null || !isNaN(id)) {
-      setSelectedProvinceId(id);
-      setSelectedDistrictId(null); // Reset district khi đổi province
-    }
+  // ✅ SỬA: Handle UUID string
+  const handleProvinceChange = useCallback((provinceId: string | null) => {
+    const id = provinceId ? String(provinceId).trim() : null;
+    setSelectedProvinceId(id);
+    setSelectedDistrictId(null);
+    console.log('Province changed to:', id);
   }, []);
 
-  const handleDistrictChange = useCallback((districtId: number | string | null) => {
-    const id = districtId !== null ? Number(districtId) : null;
-    if (id === null || !isNaN(id)) {
-      setSelectedDistrictId(id);
-    }
+  // ✅ SỬA: Handle UUID string
+  const handleDistrictChange = useCallback((districtId: string | null) => {
+    const id = districtId ? String(districtId).trim() : null;
+    setSelectedDistrictId(id);
+    console.log('District changed to:', id);
   }, []);
 
   const profileData = profile as StudentProfile | undefined;
-  const provincesForForm = provinces.map((p) => ({ ...p, id: Number(p.id) }));
-  const districtsForForm = districts.map((d) => ({
-    id: Number(d.id),
-    name: d.name,
-    province_id: d.province_id != null ? Number(d.province_id) : 0,
-  }));
-  const wardsForForm = wards.map((w) => ({
-    id: Number(w.id),
-    name: w.name,
-    district_id: w.district_id != null ? Number(w.district_id) : 0,
-  }));
 
-  // Memoize form props để tránh re-render không cần thiết
-  const formProps = useMemo(
-    () => ({
-      profile: profileData,
-      provinces: provincesForForm,
-      districts: districtsForForm,
-      wards: wardsForForm,
-      onSave: handleSave,
-      onCancel: handleCancelEdit,
-      isSubmitting: isMutationPending || isSubmitting,
-      isLoadingProvinces,
-      isLoadingDistricts,
-      isLoadingWards,
-      selectedProvinceId,
-      selectedDistrictId,
-      onProvinceChange: handleProvinceChange,
-      onDistrictChange: handleDistrictChange,
-      validationErrors,
-    }),
-    [
-      profileData,
-      provinces,
-      districts,
-      wards,
-      handleSave,
-      handleCancelEdit,
-      isMutationPending,
-      isSubmitting,
-      isLoadingProvinces,
-      isLoadingDistricts,
-      isLoadingWards,
-      selectedProvinceId,
-      selectedDistrictId,
-      handleProvinceChange,
-      handleDistrictChange,
-      validationErrors,
-    ]
-  );
-
-  // Loading state ban đầu
+  // Loading state
   if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -300,7 +381,23 @@ const StudentProfileManager: React.FC = () => {
             )}
           </div>
         ) : (
-          <StudentProfileForm key="edit-form" {...formProps} />
+          <StudentProfileForm
+            profile={profileData}
+            provinces={provinces}
+            districts={districts}
+            wards={wards}
+            onSave={handleSave}
+            onCancel={handleCancelEdit}
+            isSubmitting={isMutationPending || isSubmitting}
+            isLoadingProvinces={isLoadingProvinces}
+            isLoadingDistricts={isLoadingDistricts}
+            isLoadingWards={isLoadingWards}
+            selectedProvinceId={selectedProvinceId}
+            selectedDistrictId={selectedDistrictId}
+            onProvinceChange={handleProvinceChange}
+            onDistrictChange={handleDistrictChange}
+            validationErrors={validationErrors}
+          />
         )}
       </div>
     </div>

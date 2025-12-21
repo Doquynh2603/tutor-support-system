@@ -6,6 +6,7 @@
 const ApplicationModel = require("../../models/Tutor/ApplicationModel");
 const { sequelize } = require("../../config/sqlserver");
 const { QueryTypes } = require("sequelize");
+const ApplicationService = require("../../service/ApplicationService");
 
 class ApplicationController {
   // lấy danh sách đơn ứng tuyển của gia sư(có lọc theo status)
@@ -182,7 +183,7 @@ class ApplicationController {
       );
 
       // gọi model để xác nhận/từ chối lớp học
-      const result = await ApplicationModel.confirmApplication(
+      const result = await ApplicationService.confirmApplication(
         userId,
         applicationId,
         isConfirmed,

@@ -18,9 +18,26 @@ class ClassModel {
     description,
     requirement,
     hourlyPrice,
+    classLevel,
+    start_date,
+    end_date,
     schedulesJson
   ) {
     try {
+      console.log(
+        `📝 [createClass] Creating class for student ${studentUserId}`
+      );
+      console.log("Parameters:", {
+        studentUserId,
+        subjectId,
+        description,
+        requirement,
+        hourlyPrice,
+        classLevel,
+        start_date,
+        end_date,
+        schedulesJson,
+      });
       // ✅ Gọi Stored Procedure
       const result = await sequelize.query(
         `EXEC sp_CreateClass
@@ -29,6 +46,9 @@ class ClassModel {
             @Description = :description,
             @Requirement = :requirement,
             @HourlyPrice = :hourlyPrice,
+            @ClassLevel = :classLevel,
+            @Start_date = :start_date,
+            @End_date = :end_date,
             @SchedulesJson = :schedulesJson`,
         {
           replacements: {
@@ -37,6 +57,9 @@ class ClassModel {
             description: description || "",
             requirement: requirement || "",
             hourlyPrice: parseInt(hourlyPrice),
+            classLevel: parseInt(classLevel),
+            start_date,
+            end_date,
             schedulesJson,
           },
           type: QueryTypes.SELECT,
@@ -44,7 +67,18 @@ class ClassModel {
       );
 
       console.log("✅ SP result:", result);
-      return result[0]?.class_id;
+      if (!result || result.length === 0) {
+        throw new Error("Stored Procedure không trả về kết quả");
+      }
+
+      const classId = result[0]?.class_id;
+
+      if (!classId) {
+        throw new Error("Không nhận được class_id từ Stored Procedure");
+      }
+
+      console.log("✅ Class created with ID:", classId);
+      return classId;
     } catch (error) {
       console.error("❌ Error in createClass:", error.message);
       throw error;
@@ -123,38 +157,17 @@ class ClassModel {
   // =====================================================
   static async getStudentClasses(studentId, status = null) {
     try {
-      let whereClause = "WHERE c.student_id = :studentId ";
+      let whereClause = "WHERE student_id = :studentId ";
       const replacements = { studentId };
       if (status) {
-        whereClause += "AND c.status = :status ";
+        whereClause += "AND status = :status ";
         replacements.status = status;
       }
       const query = `
         SELECT
-            c.class_id,
-            c.tutor_id,
-            c.student_id,
-            c.subject_id,
-            c.description,
-            c.requirement,
-            c.hourly_price,
-            c.status,
-            c.is_locked,
-            c.created_at,
-            c.updated_at,
-            c.cancellation_reason,
-            s.name as subject_name,
-            ua.name as tutor_name,
-            ua.phone as tutor_phone,
-            ua.email as tutor_email,
-            (SELECT COUNT(*) FROM TutorApplication WHERE class_id = c.class_id AND status = 'invited') as invited_tutors_count,
-            (SELECT COUNT(*) FROM TutorApplication WHERE class_id = c.class_id AND status = 'applied') as applied_tutors_count,
-            (SELECT COUNT(*) FROM Schedule WHERE class_id = c.class_id) as schedule_count
-        FROM Class c
-        INNER JOIN Subjects s ON c.subject_id = s.subject_id
-        LEFT JOIN UserAccount ua ON c.tutor_id = ua.user_id
+            *from View_StudentClassList
         ${whereClause}
-        ORDER BY c.created_at DESC
+        ORDER BY created_at DESC
       `;
 
       const classes = await sequelize.query(query, {
@@ -176,33 +189,9 @@ class ClassModel {
       // Get class info
       const classQuery = `
         SELECT
-            c.class_id,
-            c.tutor_id,
-            c.student_id,
-            c.subject_id,
-            c.description,
-            c.requirement,
-            c.hourly_price,
-            c.status,
-            c.is_locked,
-            c.created_at,
-            c.updated_at,
-            c.cancellation_reason,
-            s.name as subject_name,
-            ua.name as tutor_name,
-            ua.phone as tutor_phone,
-            ua.email as tutor_email,
-            ISNULL(tp.avg_rating, 0) as tutor_rating,
-            ISNULL(tp.total_reviews, 0) as tutor_reviews,
-            ISNULL(tp.bio, '') as tutor_description,
-            ISNULL(tp.hourly_rate, 0) as tutor_hourly_price
-        FROM Class c
-        INNER JOIN Subjects s ON c.subject_id = s.subject_id
-        LEFT JOIN UserAccount ua ON c.tutor_id = ua.user_id
-        LEFT JOIN TutorProfile tp ON tp.user_id = ua.user_id
-        WHERE c.class_id = :classId AND c.student_id = :studentId
+            *from View_StudentClassDetail
+        WHERE class_id = :classId AND student_id = :studentId
       `;
-
       const classDetails = await sequelize.query(classQuery, {
         replacements: { classId, studentId },
         type: QueryTypes.SELECT,
@@ -214,7 +203,8 @@ class ClassModel {
 
       // Get schedules
       const scheduleQuery = `
-        SELECT schedule_id, day_of_week, start_date, end_date, duration_minutes, created_at
+        SELECT schedule_id, day_of_week, CONVERT(varchar(5), start_time, 108) AS start_time,
+    CONVERT(varchar(5), end_time, 108) AS end_time, duration_minutes, created_at
         FROM Schedule
         WHERE class_id = :classId
         ORDER BY 
@@ -227,7 +217,7 @@ class ClassModel {
                 WHEN 6 THEN 6 
                 WHEN 7 THEN 7 
             END,
-            start_date
+            start_time
       `;
 
       const schedules = await sequelize.query(scheduleQuery, {
@@ -318,7 +308,7 @@ class ClassModel {
   static async updateClassInfo(
     classId,
     studentUserId,
-    { description, requirement, hourly_price }
+    { description, requirement, hourly_price, classLevel }
   ) {
     try {
       const result = await sequelize.query(
@@ -327,7 +317,8 @@ class ClassModel {
             @StudentUserId = :studentUserId,
             @Description = :description,
             @Requirement = :requirement,
-            @HourlyPrice = :hourlyPrice`,
+            @HourlyPrice = :hourlyPrice,
+            @ClassLevel = :classLevel`,
         {
           replacements: {
             classId,
@@ -335,6 +326,7 @@ class ClassModel {
             description: description || "",
             requirement: requirement || "",
             hourlyPrice: hourly_price,
+            classLevel: classLevel,
           },
           type: QueryTypes.SELECT,
         }
@@ -409,40 +401,16 @@ class ClassModel {
       const query = `
         SELECT
             ta.application_id,
-            ta.tutor_id,
-            ta.status,
             ta.applied_at,
-            ta.approved_at,
             
             ua.name as tutor_name,
             ua.email as tutor_email,
             ua.phone as tutor_phone,
-            ua.dateOfBirth as tutor_dob,
-            
-            tp.experience_years,
-            tp.bio,
-            tp.avg_rating,
-            tp.total_reviews,
-            
-            w.name as ward_name,
-            d.name as district_name,
-            p.name as province_name,
-            
-            c.description as class_description,
-            c.requirement,
-            c.hourly_price,
-            
-            sub.name as subject_name
+            ua.gender as tutor_gender,
+            ta.tutor_id
             FROM TutorApplication ta
-            JOIN Class c on ta.class_id = c.class_id
             join UserAccount ua on ta.tutor_id = ua.user_id
-            join TutorProfile tp on ua.user_id = tp.user_id
-            
-            left join Ward w on ua.address_id = w.id
-            left join District d on w.district_id = d.id
-            left join Province_Id p on d.province_id = p.id
-            
-            join Subjects sub on c.subject_id = sub.subject_id
+            join Class c on ta.class_id = c.class_id
             where ta.class_id = :classId
             and c.student_id = :studentUserId
             and ta.status = 'applied'
@@ -477,6 +445,8 @@ class ClassModel {
           ua.email as tutor_email,
           ua.phone as tutor_phone,
           ua.dateOfBirth as tutor_dob,
+          ua.gender as tutor_gender,
+          ua.locationDetail as tutor_location,
           tp.hourly_rate,
           tp.bio,
           tp.experience_years,
@@ -505,9 +475,11 @@ class ClassModel {
           ta.class_id,
           sch.schedule_id,
           sch.day_of_week,
-          sch.start_date as start_time,
-          sch.end_date as end_time,
+          CONVERT(varchar(5), sch.start_time, 108) AS start_time,
+    CONVERT(varchar(5), sch.end_time, 108) AS end_time,
           c.subject_id,
+          c.start_date as class_start_date,
+          c.end_date as class_end_date,
           sub.name as subject_name
           from TutorApplication ta
           join Class c on ta.class_id = c.class_id
@@ -516,8 +488,8 @@ class ClassModel {
           where ta.tutor_id = :tutorUserId
           and ta.status = 'approved'
           and isConfirmed = 1
-          and (sch.end_date is null or sch.end_date >= getdate())
-          order by sch.day_of_week, sch.start_date`;
+           AND (sch.end_time IS NULL OR CAST(GETDATE() AS TIME) <= sch.end_time)
+          order by sch.day_of_week, sch.start_time`;
 
       const schedules = await sequelize.query(schedulesQuery, {
         replacements: { tutorUserId },
@@ -525,10 +497,11 @@ class ClassModel {
       });
 
       const classesQuery = `
-      SELECT c.class_id, c.description, c.hourly_price, sub.name as subject_name from Class c
+      SELECT c.class_id, c.grade_level as classLevel, c.start_date, c.end_date, sub.name as subject_name from Class c
       join Subjects sub on c.subject_id = sub.subject_id
       where c.tutor_id = :tutorUserId
       and c.status in ('completed', 'active')
+      AND (c.end_date IS NULL OR CAST(c.end_date AS DATE) >= CAST(GETDATE() AS DATE))
       order by c.created_at desc`;
 
       const classesTaught = await sequelize.query(classesQuery, {
@@ -560,13 +533,13 @@ class ClassModel {
         SELECT 
           schedule_id,
           day_of_week,
-          start_date as start_time,
-          end_date as end_time,
+          CONVERT(varchar(5), start_time, 108) AS start_time,
+    CONVERT(varchar(5), end_time, 108) AS end_time,
           duration_minutes
           from Schedule
           where class_id = :classId
-          and (end_date is null or end_date >= getdate())
-          order by day_of_week, start_date
+          AND (end_time IS NULL OR CAST(GETDATE() AS TIME) <= end_time)
+          order by day_of_week, start_time
       `;
       const results = await sequelize.query(query, {
         replacements: { classId },

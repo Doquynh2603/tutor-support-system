@@ -12,8 +12,11 @@ import {
   BookOpen,
   Clock,
   Award,
+  Users,
 } from 'lucide-react';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 import { StudentProfile } from '../../types';
 interface InfoItemProps {
   icon: React.ReactNode;
@@ -39,6 +42,11 @@ const StudentProfileDisplay: React.FC<StudentProfileDisplayProps> = ({
       month: 'long',
       year: 'numeric',
     });
+  };
+  const getGenderDisplay = (gender?: boolean | null) => {
+    if (gender === true) return 'Nam';
+    if (gender === false) return 'Nữ';
+    return 'Chưa xác định';
   };
   const getLocationName = () => {
     if (!profile?.province_name) return 'Chưa cập nhật';
@@ -109,7 +117,7 @@ const StudentProfileDisplay: React.FC<StudentProfileDisplayProps> = ({
               label="Ngày sinh"
               value={
                 profile.dateOfBirth
-                  ? dayjs(profile.dateOfBirth).format('DD/MM/YYYY')
+                  ? dayjs.utc(profile.dateOfBirth).format('DD/MM/YYYY')
                   : 'Chưa cập nhật'
               }
             />
@@ -117,6 +125,11 @@ const StudentProfileDisplay: React.FC<StudentProfileDisplayProps> = ({
               icon={<User className="h-4 w-4" />}
               label="Tuổi"
               value={profile.age ? `${profile.age} tuổi` : 'Chưa xác định'}
+            />
+            <InfoItem
+              icon={<Users className="h-4 w-4" />}
+              label="Giới tính"
+              value={getGenderDisplay(profile.gender)}
             />
             <InfoItem
               icon={<Phone className="h-4 w-4" />}

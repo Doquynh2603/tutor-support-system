@@ -11,11 +11,12 @@ import {
   BookOpen,
   Clock,
   Award,
-  Camera,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import { TutorProfile } from '@/types';
+import { Subject } from '@/types';
 interface TutorProfileDisplayProps {
   profile: TutorProfile | null;
   onEdit?: () => void;
@@ -43,20 +44,50 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
     });
   };
 
+  const getGenderDisplay = (gender?: boolean | null) => {
+    if (gender === true) return 'Nam';
+    if (gender === false) return 'Nữ';
+    return 'Chưa xác định';
+  };
+
   const getLocationName = () => {
     if (!profile?.province_name) return 'Chưa cập nhật';
     const parts = [profile.ward_name, profile.district_name, profile.province_name].filter(Boolean);
     return parts.join(', ');
   };
 
-  const getUserInitials = (name?: string) => {
-    if (!name) return 'NN';
-    return name
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  // ✅ SỬA: Get subjects - đã là array of objects {subject_id, name}
+  const getSubjectsArray = (): Subject[] => {
+    if (!profile?.subjects) return [];
+
+    // Nếu đã là array objects từ backend
+    if (Array.isArray(profile.subjects)) {
+      const first = profile.subjects[0];
+      if (first && typeof first === 'object' && 'name' in first) {
+        return profile.subjects as Subject[];
+      }
+
+      // Nếu vẫn là string IDs, parse JSON
+      try {
+        if (typeof first === 'string') {
+          return JSON.parse(JSON.stringify(profile.subjects));
+        }
+      } catch (e) {
+        console.warn('Lỗi parse subjects:', e);
+      }
+    }
+
+    // Nếu là string JSON
+    try {
+      return typeof profile.subjects === 'string'
+        ? JSON.parse(profile.subjects)
+        : Array.isArray(profile.subjects)
+          ? profile.subjects
+          : [];
+    } catch (e) {
+      console.warn('Lỗi parse subjects JSON:', e);
+      return [];
+    }
   };
 
   if (!profile) {
@@ -72,21 +103,21 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
     );
   }
 
+  const subjectsArray = getSubjectsArray();
+  console.log('📚 Subjects array:', subjectsArray);
+
   return (
     <div className="space-y-6">
       {/* Profile Overview Card */}
       <Card>
         <CardHeader>
           <div className="flex items-start gap-6">
-            {/* Avatar Section */}
-
-            {/* Basic Info */}
             <div className="flex-1 space-y-2">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold">{profile.name || 'Chưa cập nhật tên'}</h2>
                 <div className="flex gap-2">
                   {profile.is_verified ? (
-                    <Badge variant="success" className="gap-1">
+                    <Badge variant="default" className="gap-1 bg-green-600">
                       <Award className="h-3 w-3" />
                       Đã xác minh
                     </Badge>
@@ -99,7 +130,7 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-1">
                   <Mail className="h-4 w-4" />
                   {profile.email}
@@ -139,6 +170,11 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
               icon={<User className="h-4 w-4" />}
               label="Tuổi"
               value={profile.age ? `${profile.age} tuổi` : 'Chưa xác định'}
+            />
+            <InfoItem
+              icon={<Users className="h-4 w-4" />}
+              label="Giới tính"
+              value={getGenderDisplay(profile.gender)}
             />
             <InfoItem
               icon={<Phone className="h-4 w-4" />}
@@ -188,32 +224,57 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
             <InfoItem
               icon={<Award className="h-4 w-4" />}
               label="Số năm kinh nghiệm"
-              value={profile.experience_years ? `${profile.experience_years} năm` : 'Chưa cập nhật'}
-            />
-            <InfoItem
-              icon={<BookOpen className="h-4 w-4" />}
-              label="Chuyên môn"
-              value={profile.specialties || 'Chưa cập nhật'}
+              value={
+                profile.experience_years !== undefined && profile.experience_years !== null
+                  ? `${profile.experience_years} năm`
+                  : 'Chưa cập nhật'
+              }
             />
             <InfoItem
               icon={<Award className="h-4 w-4" />}
               label="Giá theo giờ"
-              value={profile.hourly_rate ? `${profile.hourly_rate} VND` : 'Chưa cập nhật'}
+              value={
+                profile.hourly_rate
+                  ? `${profile.hourly_rate.toLocaleString('vi-VN')} VND`
+                  : 'Chưa cập nhật'
+              }
             />
             <InfoItem
               icon={<Award className="h-4 w-4" />}
               label="Đánh giá trung bình"
-              value={profile.avg_rating ? `${profile.avg_rating}/5` : 'Chưa có đánh giá'}
+              value={profile.avg_rating ? `${profile.avg_rating}/5 ⭐` : 'Chưa có đánh giá'}
             />
             <InfoItem
               icon={<Award className="h-4 w-4" />}
               label="Tổng số đánh giá"
-              value={profile.total_reviews ? profile.total_reviews : '0'}
+              value={profile.total_reviews || '0'}
             />
           </div>
 
+          {/* ✅ SỬA: Display subjects - hiển thị tên môn học */}
+          {subjectsArray && subjectsArray.length > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BookOpen className="h-4 w-4" />
+                Môn học dạy
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {subjectsArray.map((subject: Subject, index: number) => (
+                  <Badge
+                    key={`${subject.subject_id}-${index}`}
+                    variant="secondary"
+                    className="bg-blue-100 text-blue-800"
+                  >
+                    {/* ✅ Hiển thị tên môn học */}
+                    {subject.name || subject.subject_id || 'Không xác định'}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {profile.introduction && (
-            <div className="space-y-2">
+            <div className="space-y-2 border-t pt-4">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <User className="h-4 w-4" />
                 Giới thiệu bản thân
@@ -242,7 +303,7 @@ const TutorProfileDisplay: React.FC<TutorProfileDisplayProps> = ({
               icon={<Award className="h-4 w-4" />}
               label="Trạng thái tài khoản"
               value={
-                <Badge variant={profile.is_verified ? 'success' : 'secondary'}>
+                <Badge variant={profile.is_verified ? 'default' : 'secondary'}>
                   {profile.is_verified ? 'Đã xác minh' : 'Chưa xác minh'}
                 </Badge>
               }

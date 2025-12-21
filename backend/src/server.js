@@ -55,6 +55,8 @@ let studentRoutes = require("./routes/Student/studentRouter");
 let applicationRoutes = require("./routes/Tutor/applicationRoutes");
 let searchRoutes = require("./routes/Tutor/searchRoutes");
 let subjectsRoutes = require("./routes/subjectsRoutes");
+let notificationRoutes = require("./routes/NotificationRoutes");
+const socketEmitter = require("./utils/socketEmitter"); // ✅ THÊM DÒNG NÀY
 try {
   errorHandler = require("./middlewares/errorHandler");
 } catch (error) {
@@ -111,7 +113,10 @@ const io = socketIo(server, {
     credentials: true,
   },
 });
+app.locals.io = io;
 
+socketEmitter.setIO(io);
+console.log("✅ SocketEmitter initialized with io instance");
 // ===========================
 // MIDDLEWARE CONFIGURATION
 // ===========================
@@ -257,17 +262,6 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     status: "running",
     timestamp: new Date().toISOString(),
-    endpoints: {
-      health: "/api/health",
-      auth: "/api/auth/*",
-      users: "/api/users/*",
-      tutors: "/api/tutor/*",
-      students: "/api/student/*",
-      classes: "/api/classes/*",
-      applications: "/api/applications/*",
-      messages: "/api/messages/*",
-    },
-    documentation: process.env.NODE_ENV === "development" ? "/api/docs" : null,
   });
 });
 
@@ -283,35 +277,19 @@ app.get("/api", (req, res) => {
       mongodb: global.mongoConnectionStatus || "disconnected",
       sqlserver: global.dbConnectionStatus || "disconnected",
     },
-    available_endpoints: [
-      "GET /api/health - Health check",
-      "GET /api/tutor/profile - Get tutor profile",
-      "PUT /api/tutor/profile - Update tutor profile",
-      "GET /api/tutor/locations - Get teaching locations",
-      "GET /api/tutor/test-db - Test database connection",
-    ],
   });
 });
 
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-// app.use("/api/tutor/profile", tutorRoutes); // ✅ Tutor profile routes
 app.use("/api/tutor", tutorRoutes); // ✅ Tutor profile management routes
 app.use("/api/locations", locationRoutes); // ✅ Location routes (provinces & wards)
 app.use("/api/search", searchRoutes); // ✅ Search classes routes
 app.use("/api/subjects", subjectsRoutes); // ✅ Subjects routes
 app.use("/api/student", studentRoutes);
-// app.use("/api/classes", classRoutes);
 app.use("/api/applications", applicationRoutes);
-// app.use("/api/messages", messageRoutes);
-
-// API documentation route (if using Swagger)
-if (process.env.NODE_ENV === "development") {
-  app.get("/api/docs", (req, res) => {
-    res.redirect("/api-docs");
-  });
-}
+app.use("/api/notifications", notificationRoutes);
 
 // ===========================
 // SOCKET.IO CONFIGURATION
@@ -321,53 +299,90 @@ if (process.env.NODE_ENV === "development") {
  * Socket.IO connection handling
  */
 // Development mode: Skip authentication for Socket.IO
+
 if (process.env.NODE_ENV === "development") {
+  // Development: skip auth
   io.use(async (socket, next) => {
-    // Mock authentication for development
-    socket.userId = "dev-tutor-1";
-    socket.userRole = "tutor";
+    socket.userId = socket.handshake.auth.userId || "dev-user-1";
+    socket.userRole = socket.handshake.auth.userRole || "tutor";
     console.log(
-      `✅ Socket authenticated (DEV MODE): User ${socket.userId} (${socket.userRole})`
+      `✅ Socket connected (DEV): ${socket.userId} (${socket.userRole})`
     );
     next();
   });
 } else {
-  // Production authentication
+  // Production: verify token
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token;
       if (!token) {
-        return next(new Error("Authentication error: No token provided"));
+        return next(new Error("No token provided"));
       }
 
-      // Verify JWT token (implement this based on your auth logic)
+      const { verifySocketToken } = require("./controllers/authController");
       const user = await verifySocketToken(token);
-      socket.userId = user.id;
+
+      socket.userId = user.user_id;
       socket.userRole = user.role;
 
-      console.log(`✅ Socket authenticated: User ${user.id} (${user.role})`);
+      console.log(`✅ Socket authenticated: ${user.user_id} (${user.role})`);
       next();
     } catch (error) {
-      console.error("❌ Socket authentication failed:", error);
-      next(new Error("Authentication error"));
+      console.error("❌ Socket auth failed:", error);
+      next(new Error("Authentication failed"));
     }
   });
 }
 
 io.on("connection", (socket) => {
-  console.log(`🔌 User connected: ${socket.userId}`);
+  console.log(`🔌 User ${socket.userId} connected`);
+  socket.on("authenticate", (userId) => {
+    console.log(`📍 [Socket] User ${userId} authenticating...`);
+    socket.userId = userId;
+    socket.userRole = "student"; // Or lấy từ token
+    // Join user to their personal room
+    socket.join(`user_${userId}`);
+    console.log(`✅ [Socket] User ${userId} joined room: user_${userId}`);
+    // Join role-based rooms
+    if (socket.userRole === "tutor") {
+      socket.join("tutors");
+    } else if (socket.userRole === "student") {
+      socket.join("students");
+    } else if (socket.userRole === "admin") {
+      socket.join("admins");
+    }
+    socket.emit("authenticated", { userId, status: "success" });
+  });
 
-  // Join user to their personal room
-  socket.join(`user_${socket.userId}`);
+  // ===========================
+  // NOTIFICATION EVENTS
+  // ===========================
 
-  // Join role-based rooms
-  if (socket.userRole === "tutor") {
-    socket.join("tutors");
-  } else if (socket.userRole === "student") {
-    socket.join("students");
-  } else if (socket.userRole === "admin") {
-    socket.join("admins");
-  }
+  // ✅ Mark notification as read
+  socket.on("notification:read", async (notificationId) => {
+    try {
+      const { NotificationService } = require("./services/NotificationService");
+      await NotificationService.markAsRead(notificationId, socket.userId);
+
+      console.log(`📬 Notification ${notificationId} marked as read`);
+      socket.emit("notification:read:success", { notificationId });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      socket.emit("notification:read:error", { error: error.message });
+    }
+  });
+
+  // ✅ Get unread count
+  socket.on("notification:unread-count", async () => {
+    try {
+      const { NotificationService } = require("./services/NotificationService");
+      const count = await NotificationService.getUnreadCount(socket.userId);
+
+      socket.emit("notification:unread-count", { count });
+    } catch (error) {
+      console.error("Error getting unread count:", error);
+    }
+  });
 
   // ===========================
   // TUTOR PROFILE EVENTS
@@ -440,33 +455,11 @@ io.on("connection", (socket) => {
 
   socket.on("application:submit", async (data) => {
     try {
-      const { classId } = data;
-
-      // Notify class owner (student) about new application
-      // Implementation depends on your application logic
-
       console.log(
-        `📋 Application submitted by tutor ${socket.userId} for class ${classId}`
+        `📋 Application submitted by ${socket.userId} for class ${data.classId}`
       );
     } catch (error) {
-      console.error("Error handling application submit:", error);
-    }
-  });
-
-  // ===========================
-  // NOTIFICATION EVENTS
-  // ===========================
-
-  socket.on("notification:read", async (notificationId) => {
-    try {
-      // Mark notification as read in database
-      // await markNotificationAsRead(notificationId, socket.userId);
-
-      console.log(
-        `📬 Notification ${notificationId} marked as read by user ${socket.userId}`
-      );
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
+      console.error("Error handling application:", error);
     }
   });
 
@@ -476,9 +469,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", (reason) => {
     console.log(`🔌 User ${socket.userId} disconnected: ${reason}`);
-
-    // Clean up any resources if needed
-    // Remove from active users list, etc.
   });
 
   socket.on("error", (error) => {
@@ -548,9 +538,6 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // ===========================
 // SERVER STARTUP
 // ===========================
-
-// Import verifySocketToken from auth controller
-const { verifySocketToken } = require("./controllers/authController");
 
 /**
  * Start the server

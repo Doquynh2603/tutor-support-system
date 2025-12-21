@@ -16,6 +16,9 @@ import { useTutorClassDetail, useClassStudentProfile } from '../../hooks/useTuto
 import StudentProfileModal from './StudentProfileModal';
 
 import { ClassDetail } from '@/types';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 interface TutorClassDetailProps {
   classId: string;
@@ -141,12 +144,18 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
               <label className="text-sm text-muted-foreground">Môn học</label>
               <p className="font-semibold">{classDetail.subject_name}</p>
             </div>
-
+            <div>
+              <label className="text-sm text-muted-foreground">Lớp</label>
+              <p className="font-semibold">{classDetail.classLevel}</p>
+            </div>
             <div>
               <label className="text-sm text-muted-foreground">Mô tả</label>
               <p className="font-semibold">{classDetail.description || 'Không có'}</p>
             </div>
-
+            <div>
+              <label className="text-sm text-muted-foreground">Yêu cầu từ phụ huynh</label>
+              <p className="font-semibold">{classDetail.requirement || 'Không có'}</p>
+            </div>
             <div>
               <label className="text-sm text-muted-foreground">Trạng thái</label>
               <p className="font-semibold capitalize">
@@ -163,7 +172,23 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
             <div>
               <label className="text-sm text-muted-foreground">Ngày tạo</label>
               <p className="font-semibold">
-                {new Date(classDetail.created_at).toLocaleDateString('vi-VN')}
+                {classDetail.created_at
+                  ? dayjs.utc(classDetail.created_at).format('DD/MM/YYYY')
+                  : ''}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Ngày bắt đầu</label>
+              <p className="font-semibold">
+                {classDetail.start_date
+                  ? dayjs.utc(classDetail.start_date).format('DD/MM/YYYY')
+                  : ''}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Ngày kết thúc</label>
+              <p className="font-semibold">
+                {classDetail.end_date ? dayjs.utc(classDetail.end_date).format('DD/MM/YYYY') : ''}
               </p>
             </div>
           </CardContent>

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setSuggestedTutors, toggleTutorSelection } from '../../store/slices/classesSlice';
 import { RootState } from '../../store';
-import { classAPI } from '../../services/api';
+import { classAPI } from '../../services/studentApi';
 import TutorCard from './TutorCard';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';

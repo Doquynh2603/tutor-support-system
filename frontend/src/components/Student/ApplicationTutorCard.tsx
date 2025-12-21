@@ -1,6 +1,16 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Star, MapPin, Mail, Phone, AlertCircle } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Star,
+  MapPin,
+  Mail,
+  Phone,
+  AlertCircle,
+  Users,
+} from 'lucide-react';
 import { Application } from '@/hooks/useApplications';
+import { Button } from '@/components/ui/button';
 
 interface ApplicationTutorCardProps {
   app: Application;
@@ -18,117 +28,70 @@ const ApplicationTutorCard: React.FC<ApplicationTutorCardProps> = ({
   isLoading,
 }) => {
   const getStatusColor = (status: string) => {
-    const statusMap: Record<string, string> = {
-      applied: 'border-l-4 border-blue-500 bg-blue-50',
-      invited: 'border-l-4 border-purple-500 bg-purple-50',
-      approved: 'border-l-4 border-green-500 bg-green-50',
-      rejected: 'border-l-4 border-red-500 bg-red-50',
+    const statusMap: Record<string, { bg: string; border: string; dot: string }> = {
+      applied: { bg: 'bg-blue-50', border: 'border-blue-200', dot: 'bg-blue-500' },
+      invited: { bg: 'bg-purple-50', border: 'border-purple-200', dot: 'bg-purple-500' },
+      approved: { bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
+      rejected: { bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
     };
-    return statusMap[status] || 'border-l-4 border-gray-500 bg-gray-50';
+    return statusMap[status] || { bg: 'bg-gray-50', border: 'border-gray-200', dot: 'bg-gray-500' };
   };
 
   const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      applied: '📋 Đã ứng tuyển',
-      invited: '📧 Lời mời',
-      approved: '✅ Đã duyệt',
-      rejected: '❌ Từ chối',
+    const labels: Record<string, { icon: string; label: string }> = {
+      applied: { icon: '📋', label: 'Đã ứng tuyển' },
+      invited: { icon: '📧', label: 'Lời mời' },
+      approved: { icon: '✅', label: 'Đã duyệt' },
+      rejected: { icon: '❌', label: 'Từ chối' },
     };
-    return labels[status] || status;
+    return labels[status] || { icon: '❓', label: status };
   };
+
+  const colors = getStatusColor(app.status);
+  const statusInfo = getStatusLabel(app.status);
+  const genderDisplay =
+    app.tutor_gender === true ? 'Nữ' : app.tutor_gender === false ? 'Nam' : 'Khác';
 
   return (
     <div
-      className={`rounded-lg overflow-hidden transition shadow-sm hover:shadow-md ${getStatusColor(
-        app.status
-      )}`}
+      className={`rounded-lg border-2 transition-all ${colors.border} ${colors.bg} overflow-hidden hover:shadow-md`}
     >
-      {/* HEADER */}
-      <div
-        className="p-4 cursor-pointer flex items-center justify-between hover:bg-black hover:bg-opacity-5"
-        onClick={onToggleExpand}
-      >
-        <div className="flex-1">
-          <h3 className="font-semibold text-lg text-gray-900">{app.tutor_name}</h3>
-          <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-            <span className="flex items-center gap-1">
-              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-              {app.avg_rating?.toFixed(1) || 0} / 5.0
-              {app.total_reviews && app.total_reviews > 0 && (
-                <span className="text-gray-500">({app.total_reviews})</span>
-              )}
-            </span>
-            <span className="flex items-center gap-1">📚 {app.experience_years || 0} năm</span>
+      {/* HEADER - Main Info */}
+      <div className="p-4 space-y-3">
+        {/* Top row: Name and Status */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-gray-900">{app.tutor_name}</h3>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium bg-white bg-opacity-70 px-3 py-1 rounded">
-            {getStatusLabel(app.status)}
-          </span>
-          {isExpanded ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          )}
+          {/* Contact Info Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{app.tutor_phone || 'N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{app.tutor_email || 'N/A'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <span>{genderDisplay}</span>
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-2">
+            <Button
+              onClick={onViewDetail}
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed py-2 h-auto"
+            >
+              👁️ Xem chi tiết gia sư
+            </Button>
+          </div>
         </div>
       </div>
-
-      {/* EXPANDED DETAILS */}
-      {isExpanded && (
-        <div className="border-t border-gray-200 border-opacity-50 p-4 space-y-4">
-          {/* INFO GRID */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-xs text-gray-500 font-semibold mb-1">Kinh nghiệm</p>
-              <p className="font-medium">{app.experience_years || 0} năm</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 font-semibold mb-1">Địa chỉ</p>
-              <p className="font-medium text-sm flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {app?.ward_name || ''}, {app?.district_name || ''}, {app?.province_name || ''}
-              </p>
-            </div>
-          </div>
-
-          {/* BIO */}
-          <div>
-            <p className="text-xs text-gray-500 font-semibold mb-1">Giới thiệu</p>
-            <p className="text-sm text-gray-700">{app.bio || 'Không có'}</p>
-          </div>
-
-          {/* SCHEDULE CONFLICT WARNING */}
-          {app.schedule_conflict && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-800">⚠️ Lịch dạy bị trùng</p>
-                <p className="text-xs text-red-700 mt-1">
-                  Gia sư này có lịch dạy trùng với lớp học của bạn
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* CONTACT INFO */}
-          <div className="flex gap-4 py-3 border-t border-gray-200 border-opacity-50">
-            <Mail className="w-4 h-4" />
-            {app.tutor_email}
-            <Phone className="w-4 h-4" />
-            {app.tutor_phone}
-          </div>
-
-          {/* ACTION BUTTON */}
-          <button
-            onClick={onViewDetail}
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
-          >
-            👁️ Xem chi tiết
-          </button>
-        </div>
-      )}
     </div>
   );
 };

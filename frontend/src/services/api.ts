@@ -157,8 +157,8 @@ class ApiService {
     return this.request<T>(endpoint, { method: 'PATCH', data });
   }
 
-  delete<T = any>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  delete<T = any>(endpoint: string, data: any = {}) {
+    return this.request<T>(endpoint, { method: 'DELETE', data });
   }
 
   upload<T = any>(
@@ -258,6 +258,7 @@ export const applicationAPI = {
 
 export const searchAPI = {
   searchClasses: (filters: Record<string, unknown>) => apiService.get('/search/classes', filters),
+  getClassDetail: (classId: string) => apiService.get(`/search/classes/${classId}`),
 };
 
 // ============================================
@@ -314,36 +315,6 @@ export const retryApiCall = async <T>(
 
   throw lastError;
 };
-// ============================================
-// CLASS API ENDPOINTS (NEW)
-// ============================================
-
-export const classAPI = {
-  createClass: (data: any) => apiService.post('/student/class', data),
-  getMyClasses: (status?: string) => {
-    const params = status ? { status } : {};
-    return apiService.get('/student/class', params);
-  },
-  getClassDetails: (classId: string) => apiService.get(`/student/class/${classId}`),
-  getSuggestedTutors: (subjectId: string) =>
-    apiService.get('/student/class/suggested-tutors', { subject_id: subjectId }),
-  inviteTutor: (classId: string, tutorUserId: string) =>
-    apiService.post(`/student/class/${classId}/invite`, { tutor_id: tutorUserId }),
-  approveApplication: (classId: string, applicationId: string) =>
-    apiService.post(`/student/class/${classId}/approve`, { application_id: applicationId }),
-  updateClass: (
-    classId: string,
-    data: {
-      description: string | null;
-      requirement: string | null;
-      hourly_price: number;
-    }
-  ) => apiService.put(`/student/class/${classId}`, data),
-  cancelClass: (classId: string, cancellationReason: string) =>
-    apiService.patch(`/student/class/${classId}`, {
-      cancellation_reason: cancellationReason,
-    }),
-};
 // =====================================================
 // STUDENT - APPLICATIONS (Duyệt/Từ chối Gia sư)
 // =====================================================
@@ -382,4 +353,25 @@ export const studentApplicationAPI = {
       action,
       rejection_reason: rejectionReason || null,
     }),
+};
+
+// ============================================
+// NOTIFICATION API ENDPOINTS
+// ============================================
+
+export const notificationsAPI = {
+  getUnreadNotifications: (limit: number = 10, offset: number = 0) =>
+    apiService.get('/notifications/unread', { limit, offset }),
+
+  getAllNotifications: (page: number = 1, limit: number = 20) =>
+    apiService.get('/notifications', { page, limit }),
+
+  getUnreadCount: () => apiService.get('/notifications/count/unread'),
+
+  markAsRead: (notificationId: string) => apiService.put(`/notifications/${notificationId}/read`),
+
+  markAllAsRead: () => apiService.put('/notifications/read-all'),
+
+  deleteNotification: (notificationId: string) =>
+    apiService.delete(`/notifications/${notificationId}`),
 };
