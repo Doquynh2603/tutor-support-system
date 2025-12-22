@@ -31,8 +31,8 @@ export const classAPI = {
     return apiService.get('/student/class', params);
   },
   getClassDetails: (classId: string) => apiService.get(`/student/class/${classId}`),
-  getSuggestedTutors: (subjectId: string) =>
-    apiService.get('/student/class/suggested-tutors', { subject_id: subjectId }),
+  getSuggestedTutors: (classId: string) =>
+    apiService.get(`/student/class/${classId}/suggested-tutors`),
   inviteTutor: (classId: string, tutorUserId: string) =>
     apiService.post(`/student/class/${classId}/invite`, { tutor_id: tutorUserId }),
   approveApplication: (classId: string, applicationId: string) =>

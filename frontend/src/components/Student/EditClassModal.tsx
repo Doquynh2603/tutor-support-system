@@ -41,6 +41,7 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
     requirement: '',
     hourly_price: 0,
     classLevel: 0,
+    subject_name: '', // ✅ Added subject_name
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -53,6 +54,7 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
         requirement: classData.requirement || '',
         hourly_price: classData.hourly_price || 0,
         classLevel: classData.classLevel || 0,
+        subject_name: classData.subject_name || '', // ✅ Populate subject_name
       });
       setErrors({});
     }
@@ -95,6 +97,11 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
 
     if (formData.hourly_price <= 0) {
       newErrors.hourly_price = 'Học phí phải lớn hơn 0';
+    }
+
+    // ✅ Validate: Học phí chỉ được tăng
+    if (classData && formData.hourly_price < classData.hourly_price) {
+      newErrors.hourly_price = 'Học phí chỉ được phép tăng, không được giảm';
     }
 
     if (formData.classLevel <= 0) {
@@ -152,7 +159,7 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
           <div className="space-y-1">
             <Label className="text-sm">Môn học</Label>
             <div className="px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm">
-              {classData?.subject_name || 'Không xác định'}
+              {formData.subject_name || 'Không xác định'}
             </div>
           </div>
 
@@ -161,22 +168,10 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({
             <Label htmlFor="classLevel" className="text-sm">
               Cấp lớp
             </Label>
-            <Select
-              value={formData.classLevel ? String(formData.classLevel) : ''}
-              onValueChange={handleClassLevelChange}
-            >
-              <SelectTrigger className={errors.classLevel ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Chọn cấp lớp (1-12)" />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((level) => (
-                  <SelectItem key={level} value={String(level)}>
-                    Lớp {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.classLevel && <p className="text-xs text-red-500">{errors.classLevel}</p>}
+            <div className="px-2 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm">
+              Lớp {formData.classLevel}
+            </div>
+            <p className="text-xs text-gray-500">Không thể thay đổi cấp lớp</p>
           </div>
 
           {/* Description */}

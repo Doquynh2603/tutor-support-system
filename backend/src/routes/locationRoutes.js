@@ -19,7 +19,4 @@ router.get("/districts/:provinceId", locationController.getDistricts);
 // Route để lấy danh sách phường/xã theo quận/huyện
 router.get("/wards/:districtId", locationController.getWards);
 
-// Route để lấy tất cả phường/xã (với district_id)
-router.get("/wards", locationController.getAllWards);
-
 module.exports = router;

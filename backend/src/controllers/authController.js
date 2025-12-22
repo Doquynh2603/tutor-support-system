@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const UserAccount = require("../models/UserSQL");
-
+const redisClient = require("../config/redis");
 /**
  * Generate JWT token
  */
@@ -168,20 +168,38 @@ const register = async (req, res) => {
 };
 
 /**
- * Logout user (frontend sẽ xóa token)
+ * Đăng xuất (Logout)
+ * Cơ chế: Lưu token vào Blacklist trong Redis
  */
 const logout = async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(200).json({ message: "Đã đăng xuất (không có token)" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    if (token) {
+      // lấy thời gian hết hạn của token để set TTL cho redis
+      const decoded = jwt.decode(token);
+
+      // mặc định blacklist 24h nếu không đọc được exp
+      let ttl = 24 * 60 * 60;
+
+      if (decoded && decoded.exp) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        ttl = decoded.exp - currentTime; // thời gian còn lại của token
+      }
+      if (ttl > 0) {
+        await redisClient.set(`blacklist_token:${token}`, "true", { EX: ttl });
+        console.log(`🛑 [Logout] Token blacklisted with TTL ${ttl} seconds`);
+      }
+    }
     res.status(200).json({
       success: true,
       message: "Đăng xuất thành công",
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Lỗi server",
-    });
-  }
+  } catch (error) {}
 };
 
 /**

@@ -8,7 +8,7 @@
 const ClassModel = require("../../models/Student/classModel");
 const ClassService = require("../../service/ClassService");
 const { responseFormatter } = require("../../utils/responseFormatter");
-
+const redisClient = require("../../config/redis");
 class ClassController {
   // =====================================================
   // 1. TẠO LỚP HỌC
@@ -228,43 +228,6 @@ class ClassController {
   }
 
   // =====================================================
-  // 3. DUYỆT ỨNG TUYỂN
-  // =====================================================
-  // static async approveApplication(req, res) {
-  //   try {
-  //     const { class_id } = req.params; // ✅ Từ URL path
-  //     const { application_id } = req.body;
-  //     const student_user_id = req.user.user_id;
-
-  //     if (!application_id) {
-  //       return res
-  //         .status(400)
-  //         .json(responseFormatter(false, "Vui lòng cung cấp application_id"));
-  //     }
-
-  //     // ✅ Call model
-  //     const result = await ClassModel.approveApplication(
-  //       application_id,
-  //       student_user_id
-  //     );
-
-  //     return res.status(200).json(
-  //       responseFormatter(
-  //         {
-  //           class_id,
-  //           application_id,
-  //           is_locked: true,
-  //         },
-  //         result.message
-  //       )
-  //     );
-  //   } catch (error) {
-  //     console.error("Error approving application:", error);
-  //     return res.status(500).json(responseFormatter(false, error.message));
-  //   }
-  // }
-
-  // =====================================================
   // 4. LẤY DANH SÁCH LỚP CỦA HỌC VIÊN
   // =====================================================
   static async getStudentClasses(req, res) {
@@ -310,7 +273,21 @@ class ClassController {
           .status(400)
           .json(responseFormatter(false, "Vui lòng cung cấp class_id"));
       }
-
+      const cacheKey = `class:detail:${class_id}`;
+      // 1. Kiểm tra redis
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        console.log("⚡ [getClassDetails] Returning from Redis Cache");
+        return res
+          .status(200)
+          .json(
+            responseFormatter(
+              JSON.parse(cachedData),
+              "Chi tiết lớp học (cache)"
+            )
+          );
+      }
+      //2. Nếu không có trong cache thì query database
       // ✅ Call model
       const classData = await ClassModel.getClassDetails(
         class_id,
@@ -320,7 +297,10 @@ class ClassController {
         "dữ liệu backend chi tiết lớp lấy được từ database",
         classData
       );
-
+      //3. Lưu vào redis trong 10 phút
+      if (classData) {
+        await redisClient.set(cacheKey, JSON.stringify(classData), { EX: 600 }); //10 minutes
+      }
       return res
         .status(200)
         .json(responseFormatter(classData, "Chi tiết lớp học"));
@@ -349,20 +329,33 @@ class ClassController {
   // =====================================================
   static async getSuggestedTutors(req, res) {
     try {
-      const { subject_id } = req.query;
+      const { class_id } = req.params;
 
-      if (!subject_id) {
+      if (!class_id) {
         return res
           .status(400)
-          .json(responseFormatter(false, "Vui lòng cung cấp subject_id"));
+          .json(responseFormatter(false, "Vui lòng cung cấp class_id"));
       }
-
+      const cacheKey = `suggested_tutors:${class_id}`;
+      // 1. Kiểm tra redis
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        return res
+          .status(200)
+          .json(
+            responseFormatter(JSON.parse(cachedData), "Danh sách gợi ý (Cache)")
+          );
+      }
+      // 2. Nếu không có trong cache thì query database
       // ✅ Call model
-      const tutors = await ClassModel.getSuggestedTutors(subject_id);
-
+      const tutors = await ClassModel.getSuggestedTutors(class_id);
+      // 3. Lưu vào redis trong 5 phút
+      if (tutors.length > 0) {
+        await redisClient.set(cacheKey, JSON.stringify(tutors), { EX: 300 }); //10 minutes
+      }
       return res
         .status(200)
-        .json(responseFormatter(tutors, "Danh sách gia sư gợi ý"));
+        .json(responseFormatter(tutors, "Danh sách gia sư gợi ý phù hợp nhất"));
     } catch (error) {
       console.error("Error getting suggested tutors:", error);
       return res
@@ -401,6 +394,9 @@ class ClassController {
         hourly_price,
         classLevel,
       });
+      // xóa cache cũ để user thấy dữ liệu mới ngay
+      await redisClient.del(`class:detail:${class_id}`);
+      console.log(`🗑️ Cleared cache for class ${class_id}`);
 
       return res
         .status(200)
@@ -437,6 +433,9 @@ class ClassController {
         student_user_id,
         cancellation_reason
       );
+
+      // xóa cache cũ để user thấy dữ liệu mới ngay
+      await redisClient.del(`class:detail:${class_id}`);
       return res
         .status(200)
         .json(responseFormatter(result, "Hủy lớp học thành công"));

@@ -5,9 +5,8 @@
  */
 
 const jwt = require("jsonwebtoken");
-const User = require("../models/UserSQL");
 const UserAccount = require("../models/UserSQL");
-
+const redisClient = require("../config/redis");
 const protect = async (req, res, next) => {
   try {
     let token = req.headers.authorization;
@@ -24,6 +23,15 @@ const protect = async (req, res, next) => {
       token = token.slice(7);
     }
 
+    // 1. kiểm tra blacklist
+    const isBlacklisted = await redisClient.get(`blacklist_token:${token}`);
+    if (isBlacklisted) {
+      console.warn("🚫 [protect] Token bị từ chối (nằm trong blacklist)");
+      return res.status(401).json({
+        success: false,
+        message: "Phiên đăng nhập đã kết thúc, vui lòng đăng nhập lại",
+      });
+    }
     // Verify token
     const decoded = jwt.verify(
       token,
@@ -31,19 +39,19 @@ const protect = async (req, res, next) => {
     );
     console.log("🔐 [protect middleware] Token decoded:", decoded);
 
-    // Get user from database
-    console.log("🔐 [protect middleware] Looking up user ID:", decoded.userId);
-    const user = await UserAccount.findByPk(decoded.userId);
-    console.log(
-      "🔐 [protect middleware] User found:",
-      user ? user.email : "NOT FOUND"
-    );
+    // 2. Cache user profile
+    const cacheKey = `user_profile:${decoded.userId}`;
+    const cachedUser = await redisClient.get(cacheKey);
 
+    if (cachedUser) {
+      req.user = JSON.parse(cachedUser);
+      return next();
+    }
+
+    console.log("🐢 [protect] Fetching user from DB ID:", decoded.userId);
+
+    const user = await UserAccount.findByPk(decoded.userId);
     if (!user) {
-      console.error(
-        "🔐 [protect middleware] User not found for ID:",
-        decoded.userId
-      );
       return res.status(401).json({
         success: false,
         message: "Token không hợp lệ - user không tồn tại",
@@ -59,6 +67,10 @@ const protect = async (req, res, next) => {
       status: user.status,
       is_verified: user.is_verified,
     };
+
+    // Lưu user vào redis cache với TTL 1 giờ
+    await redisClient.set(cacheKey, JSON.stringify(req.user), { EX: 3600 });
+
     console.log(
       `🔐 [protect middleware] User authenticated: ${user.email} (role: ${user.role})`
     );

@@ -36,6 +36,7 @@
     "mssql": "^10.0.4",
     "multer": "^2.0.2",
     "path": "^0.12.7",
+    "redis": "^5.10.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",

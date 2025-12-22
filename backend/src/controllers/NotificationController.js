@@ -8,7 +8,7 @@ const {
   errorFormatter,
 } = require("../utils/responseFormatter.js");
 const NotificationService = require("../service/NotificationService");
-
+const redisClient = require("../config/redis");
 class NotificationController {
   // ✅ GET /api/notifications/unread
   static async getUnreadNotifications(req, res) {
@@ -119,11 +119,28 @@ class NotificationController {
           .status(401)
           .json(errorFormatter("Không được phép truy cập", 401));
       }
+      const cacheKey = `notif:unread_count:${userId}`;
 
+      // 1. Check Redis cache first
+      const cachedCount = await redisClient.get(cacheKey);
+      if (cachedCount !== null) {
+        return res
+          .status(200)
+          .json(
+            responseFormatter(
+              { unreadCount: parseInt(cachedCount) },
+              "From Cache",
+              200
+            )
+          );
+      }
+
+      //2. If no cache, fetch from Service/DB
       const count = await NotificationService.getUnreadCount(userId);
 
       console.log(`✅ Unread count: ${count}`);
-
+      // 3. Cache the count(không hết hạn, sẽ update khi có sự kiện)
+      await redisClient.set(cacheKey, count.toString());
       return res
         .status(200)
         .json(
@@ -168,11 +185,15 @@ class NotificationController {
 
       await NotificationService.markAsRead(notificationId, userId);
 
+      // update redis: giảm counter đi 1
+      const cacheKey = `notif:unread_count:${userId}`;
+      const currentCount = await redisClient.get(cacheKey);
+      if (currentCount && parseInt(currentCount) > 0) {
+        await redisClient.decr(cacheKey);
+      }
       console.log(`✅ Marked ${notificationId} as read`);
 
-      return res
-        .status(200)
-        .json(responseFormatter(null, "Đánh dấu đã đọc thành công", 200));
+      return res.status(200).json(responseFormatter(null, "Đã đọc", 200));
     } catch (error) {
       console.error(
         "❌ [markAsRead] Error:",
@@ -199,7 +220,8 @@ class NotificationController {
       await NotificationService.markAllAsRead(userId);
 
       console.log(`✅ Marked all notifications as read`);
-
+      // update redis: đặt lại counter về 0
+      await redisClient.set9(`notif:unread_count:${userId}`, "0");
       return res
         .status(200)
         .json(

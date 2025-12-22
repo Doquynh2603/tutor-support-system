@@ -159,8 +159,9 @@ export default function ApplicationCard({
                     Thông tin lớp học
                   </h4>
                   <p className="text-sm text-gray-600">
-                    Thời gian học: {dayjs.utc(detail?.start_date || '').format('DD/MM/YYYY')}-
-                    {dayjs.utc(detail?.end_date || '').format('DD/MM/YYYY')}
+                    Thời gian học:{' '}
+                    {detail?.start_date ? dayjs.utc(detail.start_date).format('DD/MM/YYYY') : '...'}{' '}
+                    -{detail?.end_date ? dayjs.utc(detail.end_date).format('DD/MM/YYYY') : '...'}
                   </p>
                   <p className="text-sm text-gray-600">
                     Giá: {detail?.hourly_price || 'N/A'} VNĐ/giờ

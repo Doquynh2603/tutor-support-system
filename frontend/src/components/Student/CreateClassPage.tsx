@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { useClass } from '../../hooks/useClass';
 import { resetFormData, clearSelectedTutors } from '../../store/slices/classesSlice';
 import { RootState } from '../../store';
@@ -9,6 +10,7 @@ import ClassFormStep2 from '../../components/Student/ClassFormStep2';
 
 const CreateClassPage: React.FC = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [classId, setClassId] = useState<string | null>(null);
 
@@ -161,7 +163,9 @@ const CreateClassPage: React.FC = () => {
       dispatch(resetFormData());
       dispatch(clearSelectedTutors());
       setClassId(null);
-      window.history.back();
+
+      // ✅ Chuyển hướng về trang quản lý lớp học (tab recruiting)
+      navigate('/?tab=my-classes');
     } catch (error: any) {
       console.error('❌ Lỗi khi mời gia sư:', error);
       const errorMsg = error?.response?.data?.message || error?.message || 'Lỗi khi mời gia sư';
@@ -191,6 +195,7 @@ const CreateClassPage: React.FC = () => {
             onBack={() => setStep(1)}
             onSubmit={handleStep2Submit}
             isLoading={loading}
+            classId={classId} // ✅ Truyền classId xuống
           />
         )}
       </div>

@@ -201,29 +201,56 @@ class ClassModel {
         throw new Error("Lớp học không tồn tại");
       }
 
-      // Get schedules
-      const scheduleQuery = `
-        SELECT schedule_id, day_of_week, CONVERT(varchar(5), start_time, 108) AS start_time,
-    CONVERT(varchar(5), end_time, 108) AS end_time, duration_minutes, created_at
-        FROM Schedule
-        WHERE class_id = :classId
-        ORDER BY 
-            CASE day_of_week 
-                WHEN 1 THEN 1 
-                WHEN 2 THEN 2 
-                WHEN 3 THEN 3 
-                WHEN 4 THEN 4 
-                WHEN 5 THEN 5 
-                WHEN 6 THEN 6 
-                WHEN 7 THEN 7 
-            END,
-            start_time
-      `;
+      const classData = classDetails[0];
 
-      const schedules = await sequelize.query(scheduleQuery, {
-        replacements: { classId },
-        type: QueryTypes.SELECT,
-      });
+      // ✅ OPTIMIZED: Parse schedules from JSON (View) instead of separate query
+      let schedules = [];
+      if (classData.schedules) {
+        try {
+          schedules = typeof classData.schedules === 'string' 
+            ? JSON.parse(classData.schedules) 
+            : classData.schedules;
+            
+          // Sort schedules manually since JSON array might not be sorted
+          schedules.sort((a, b) => {
+            const dayA = a.day_of_week === 8 ? 0 : a.day_of_week; // Treat CN (8) as last or first? SQL logic was 1-7. Let's assume 2-8.
+            const dayB = b.day_of_week === 8 ? 0 : b.day_of_week;
+            return dayA - dayB || a.start_time.localeCompare(b.start_time);
+          });
+        } catch (e) {
+          console.error("Error parsing schedules JSON:", e);
+        }
+        
+        // ✅ Remove raw schedules string from classData to avoid redundancy
+        delete classData.schedules;
+      }
+
+      // ✅ Process Tutor Subjects (Fetch names from IDs)
+      if (classData.tutor_subjects) {
+        try {
+          const subjectIds = typeof classData.tutor_subjects === 'string' 
+            ? JSON.parse(classData.tutor_subjects) 
+            : classData.tutor_subjects;
+
+          if (Array.isArray(subjectIds) && subjectIds.length > 0) {
+             const placeholders = subjectIds.map((_, i) => `:subId${i}`).join(',');
+             const replacements = {};
+             subjectIds.forEach((id, i) => replacements[`subId${i}`] = id);
+             
+             const subjectsQuery = `SELECT name FROM Subjects WHERE subject_id IN (${placeholders})`;
+             const subjects = await sequelize.query(subjectsQuery, {
+               replacements,
+               type: QueryTypes.SELECT
+             });
+             
+             classData.tutor_subjects_list = subjects.map(s => s.name);
+          }
+        } catch (e) {
+          console.error("Error processing tutor subjects:", e);
+        }
+        // Remove raw string
+        delete classData.tutor_subjects;
+      }
 
       // Get tutor applications
       const applicationsQuery = `
@@ -254,7 +281,7 @@ class ClassModel {
       });
 
       return {
-        class: classDetails[0],
+        class: classData,
         schedules,
         tutor_applications: applications,
       };
@@ -266,36 +293,86 @@ class ClassModel {
   // =====================================================
   // 6. LẤY DANH SÁCH GIA SƯ GỢI Ý
   // =====================================================
-  static async getSuggestedTutors(subjectId) {
+  static async getSuggestedTutors(classId) {
+    // 🧠 THUẬT TOÁN TÍNH ĐIỂM (Match Score):
+    // 1. Môn học: Bắt buộc phải khớp (Điều kiện WHERE)
+    // 2. Địa điểm (Quan trọng nhất):
+    //    - Cùng Quận/Huyện: +30 điểm
+    //    - Khác Quận nhưng Cùng Tỉnh/TP: +10 điểm
+    // 3. Học phí:
+    //    - Gia sư có mức lương mong muốn <= Học phí lớp: +20 điểm
+    // 4. Chất lượng:
+    //    - Điểm đánh giá (avg_rating * 5): Tối đa 25 điểm
+    //    - Kinh nghiệm (năm * 2): Tối đa 20 điểm (giới hạn logic)
     try {
-      // ⚠️ Note: TutorProfile không có subject_id, chỉ có subjects (string)
-      // Giải pháp: Lấy tất cả gia sư có rating cao nhất
-      // TODO: Cần thêm bảng TutorSubject hoặc JSON parse subjects
       const query = `
-        SELECT TOP 20
-            tp.tutor_profile_id as tutor_id,
-            ua.user_id,
-            ua.name,
-            ua.phone,
-            ua.email,
-            tp.hourly_rate,
-            tp.bio,
-            tp.experience_years,
-            tp.subjects,
-            tp.avg_rating,
-            tp.total_reviews,
-            tp.created_at
-        FROM TutorProfile tp
-        INNER JOIN UserAccount ua ON tp.user_id = ua.user_id
-        WHERE ua.is_verified = 1 AND ua.status = '1'
-        ORDER BY tp.avg_rating DESC, tp.total_reviews DESC, tp.created_at DESC
+        WITH ClassInfo AS (
+            SELECT 
+              c.class_id,
+              c.subject_id,
+              c.hourly_price,
+              w.district_id,
+              d.province_id
+            FROM Class c
+            JOIN UserAccount ua ON c.student_id = ua.user_id
+            LEFT JOIN Ward w on ua.address_id = w.id
+            LEFT JOIN District d on w.district_id = d.id
+            where c.class_id = :classId
+            )
+            select top 20
+              tp.tutor_profile_id,
+              ua.user_id,
+              ua.name,
+              ua.email,
+              ua.phone,
+              ua.gender,
+              ua.locationDetail,
+              tp.hourly_rate,
+              tp.bio,
+              tp.experience_years,
+              tp.avg_rating,
+              tp.total_reviews,
+              w.name as ward_name,
+              d.name as district_name,
+              p.name as province_name,
+    (
+                (CASE WHEN d.id = ci.district_id THEN 30 ELSE 0 END) + 
+                (CASE WHEN p.id = ci.province_id AND d.id != ci.district_id THEN 10 ELSE 0 END) + 
+                (CASE WHEN tp.hourly_rate <= ci.hourly_price THEN 20 ELSE 0 END) + 
+                (ISNULL(tp.avg_rating, 0) * 5) + 
+                (CASE WHEN ISNULL(tp.experience_years, 0) > 10 THEN 20 ELSE ISNULL(tp.experience_years, 0) * 2 END)
+            ) AS match_score
+             from TutorProfile tp
+             join UserAccount ua on tp.user_id = ua.user_id
+              left join Ward w on w.id = ua.address_id
+              left join District d on w.district_id = d.id
+              left join Province_Id p on p.id = d.province_id
+              cross join ClassInfo ci
+              where 
+                ua.is_verified = 1
+                and ua.status = 1
+                and ua.role = 'tutor'
+                and exists (
+                  select 1 from OPENJSON(tp.subjects)
+                  where value = cast(ci.subject_id as nvarchar(50))
+                )
+                  and not exists (
+                   select 1 from TutorApplication ta
+                   where ta.tutor_id = ua.user_id
+                   and ta.class_id = ci.class_id)
+                   order by match_score desc, tp.avg_rating desc;
       `;
 
       const tutors = await sequelize.query(query, {
+        replacements: { classId },
         type: QueryTypes.SELECT,
       });
-
-      return tutors;
+      // Parse JSON subjects string thành mảng thật cho Frontend dùng
+      const parsedTutors = tutors.map((tutor) => ({
+        ...tutor,
+        subjects: tutor.subjects ? JSON.parse(tutor.subjects) : [],
+      }));
+      return parsedTutors;
     } catch (error) {
       throw error;
     }

@@ -19,6 +19,7 @@ import { StudentProfile } from '@/types';
 interface StudentProfileModalProps {
   student?: StudentProfile | null;
   isLoading?: boolean;
+  error?: Error | null; // ✅ Added error prop
   onBack: () => void;
 }
 
@@ -38,6 +39,7 @@ export const calculateAge = (dateOfBirth?: string) => {
 const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   student,
   isLoading,
+  error,
   onBack,
 }) => {
   if (isLoading) {
@@ -53,6 +55,30 @@ const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {/* @ts-ignore */}
+                {error?.response?.data?.message ||
+                  error.message ||
+                  'Không thể tải thông tin học viên'}
+              </AlertDescription>
+            </Alert>
+            <Button onClick={onBack} className="w-full mt-4" variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Quay Lại
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!student) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -60,7 +86,7 @@ const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           <CardContent className="p-8">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>Không thể tải thông tin học viên</AlertDescription>
+              <AlertDescription>Không tìm thấy thông tin học viên</AlertDescription>
             </Alert>
             <Button onClick={onBack} className="w-full mt-4" variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />

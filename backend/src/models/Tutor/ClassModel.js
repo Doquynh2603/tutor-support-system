@@ -99,7 +99,7 @@ class ClassModel {
     try {
       // Kiểm tra gia sư có quyền xem lớp này không
       const classCheckQuery = `
-        SELECT student_id FROM Class
+        SELECT student_id, status FROM Class
         WHERE class_id = :classId AND tutor_id = :tutorUserId
       `;
 
@@ -110,6 +110,14 @@ class ClassModel {
 
       if (!classCheck) {
         throw new Error("Không tìm thấy lớp học hoặc bạn không có quyền xem");
+      }
+
+      // 🔒 Privacy Check
+      const allowedStatuses = ["has_tutor", "active", "completed"];
+      if (!allowedStatuses.includes(classCheck.status)) {
+        throw new Error(
+          "Bạn chỉ có thể xem thông tin học viên khi lớp đã có gia sư, đang dạy hoặc đã hoàn thành."
+        );
       }
 
       // Lấy thông tin học viên bảng StudentProfile và UserAccount

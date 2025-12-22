@@ -31,8 +31,9 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
   const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list'); // ✅ THÊM: viewMode
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null); // ✅ THÊM: selectedClassId
-  const { getMyClasses, loading } = useClass();
+  const { getMyClasses, getClassDetails, loading } = useClass(); // ✅ THÊM: getClassDetails
   const [classes, setClasses] = useState<any[]>([]);
+  const [classDetail, setClassDetail] = useState<any | null>(null); // ✅ THÊM: state lưu chi tiết lớp
 
   // Edit Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -144,9 +145,25 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
   };
 
   // ✅ THÊM: Xem chi tiết lớp
-  const handleViewDetail = (classId: string) => {
+  const handleViewDetail = async (classId: string) => {
     setSelectedClassId(classId);
     setViewMode('detail');
+    try {
+      const detail = await getClassDetails(classId);
+      // Normalize data structure if it comes from API with { class, schedules, ... } format
+      if (detail && detail.class) {
+        const normalized = {
+          ...detail.class,
+          schedules: detail.schedules,
+          tutor_applications: detail.tutor_applications,
+        };
+        setClassDetail(normalized);
+      } else {
+        setClassDetail(detail);
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy chi tiết lớp:', error);
+    }
   };
 
   // ✅ THÊM: Xem ứng tuyển
@@ -159,11 +176,23 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
   const handleBackToList = () => {
     setViewMode('list');
     setSelectedClassId(null);
+    setClassDetail(null); // ✅ Clear detail
   };
 
   // ✅ THÊM: Render chi tiết lớp học
   const renderClassDetail = () => {
-    if (!currentClass) return null;
+    // Ưu tiên dùng dữ liệu chi tiết từ API, nếu chưa có thì dùng tạm từ list
+    const displayClass = classDetail || currentClass;
+
+    if (!displayClass) return null;
+
+    if (loading && !classDetail) {
+      return (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">
@@ -174,7 +203,7 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
             Quay lại
           </Button>
           <h2 className="text-3xl font-bold text-gray-900">
-            {currentClass.subject_name} - Lớp {currentClass.classLevel}
+            {displayClass.subject_name} - Lớp {displayClass.classLevel}
           </h2>
         </div>
 
@@ -186,50 +215,99 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-600">Trạng thái</p>
-                  <div className="mt-1">{getStatusBadge(currentClass.class_status)}</div>
+                  <div className="mt-1">
+                    {getStatusBadge(displayClass.class_status || displayClass.status)}
+                  </div>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Giá/Giờ</p>
                   <p className="font-medium text-lg">
-                    {currentClass.hourly_price?.toLocaleString('vi-VN')} VNĐ
+                    {displayClass.hourly_price?.toLocaleString('vi-VN')} VNĐ
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Địa điểm</p>
                   <p className="font-medium">
-                    {currentClass.classLocation}, {currentClass.ward_name},{' '}
-                    {currentClass.district_name}, {currentClass.province_name}
+                    {displayClass.classLocation || displayClass.locationDetail},{' '}
+                    {displayClass.ward_name}, {displayClass.district_name},{' '}
+                    {displayClass.province_name}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Mô tả lớp</p>
-                  <p className="font-medium">{currentClass.classDescription || 'Chưa có'}</p>
+                  <p className="font-medium">
+                    {displayClass.classDescription || displayClass.description || 'Chưa có'}
+                  </p>
                 </div>
               </div>
 
               {/* Cột 2 */}
               <div className="space-y-4">
                 <div>
+                  <p className="text-sm text-gray-600">Lịch học</p>
+                  <div className="font-medium">
+                    {displayClass.schedules ? (
+                      <ul className="list-disc list-inside">
+                        {(() => {
+                          try {
+                            const schedules =
+                              typeof displayClass.schedules === 'string'
+                                ? JSON.parse(displayClass.schedules)
+                                : displayClass.schedules;
+
+                            if (!Array.isArray(schedules) || schedules.length === 0)
+                              return 'Chưa có lịch';
+
+                            return schedules.map((s: any, idx: number) => {
+                              const dayMapping: Record<number, string> = {
+                                1: 'Thứ 2',
+                                2: 'Thứ 3',
+                                3: 'Thứ 4',
+                                4: 'Thứ 5',
+                                5: 'Thứ 6',
+                                6: 'Thứ 7',
+                                7: 'Chủ Nhật',
+                                0: 'Chủ Nhật',
+                                8: 'Chủ Nhật',
+                              };
+                              return (
+                                <li key={idx}>
+                                  {dayMapping[s.day_of_week] || `Thứ ${s.day_of_week}`}:{' '}
+                                  {s.start_time?.slice(0, 5)} - {s.end_time?.slice(0, 5)}
+                                </li>
+                              );
+                            });
+                          } catch (e) {
+                            return 'Lỗi hiển thị lịch';
+                          }
+                        })()}
+                      </ul>
+                    ) : (
+                      'Chưa có lịch'
+                    )}
+                  </div>
+                </div>
+                <div>
                   <p className="text-sm text-gray-600">Ứng tuyển</p>
-                  <p className="font-medium text-lg">{currentClass.applied_tutors_count || 0}</p>
+                  <p className="font-medium text-lg">{displayClass.applied_tutors_count || 0}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Đã mời</p>
-                  <p className="font-medium text-lg">{currentClass.invited_tutors_count || 0}</p>
+                  <p className="font-medium text-lg">{displayClass.invited_tutors_count || 0}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Ngày bắt đầu</p>
                   <p className="font-medium">
-                    {currentClass.start_date
-                      ? new Date(currentClass.start_date).toLocaleDateString('vi-VN')
+                    {displayClass.start_date
+                      ? new Date(displayClass.start_date).toLocaleDateString('vi-VN')
                       : 'Chưa xác định'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Ngày kết thúc</p>
                   <p className="font-medium">
-                    {currentClass.end_date
-                      ? new Date(currentClass.end_date).toLocaleDateString('vi-VN')
+                    {displayClass.end_date
+                      ? new Date(displayClass.end_date).toLocaleDateString('vi-VN')
                       : 'Chưa xác định'}
                   </p>
                 </div>
@@ -237,39 +315,70 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
             </div>
 
             {/* Gia sư hiện tại */}
-            {currentClass.tutor_name && (
+            {displayClass.tutor_name && (
               <div className="mt-6 pt-6 border-t">
                 <h3 className="font-semibold text-lg mb-4">📋 Thông Tin Gia Sư</h3>
                 <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Tên</p>
-                      <p className="font-medium">{currentClass.tutor_name}</p>
+                      <p className="font-medium">{displayClass.tutor_name}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Email</p>
                       <a
-                        href={`mailto:${currentClass.tutor_email}`}
+                        href={`mailto:${displayClass.tutor_email}`}
                         className="text-blue-600 hover:underline"
                       >
-                        {currentClass.tutor_email}
+                        {displayClass.tutor_email}
                       </a>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Điện thoại</p>
                       <a
-                        href={`tel:${currentClass.tutor_phone}`}
+                        href={`tel:${displayClass.tutor_phone}`}
                         className="text-blue-600 hover:underline"
                       >
-                        {currentClass.tutor_phone}
+                        {displayClass.tutor_phone}
                       </a>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Đánh giá</p>
                       <div className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                        <span className="font-medium">{currentClass.tutor_rating} / 5.0</span>
+                        <span className="font-medium">{displayClass.tutor_rating} / 5.0</span>
                       </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Kinh nghiệm</p>
+                      <p className="font-medium">{displayClass.tutor_experience_years || 0} năm</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-600">Môn dạy</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {displayClass.tutor_subjects_list &&
+                        displayClass.tutor_subjects_list.length > 0 ? (
+                          displayClass.tutor_subjects_list.map((subj: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-sm border border-blue-100"
+                            >
+                              {subj}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-500 italic">Chưa cập nhật</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-600">Địa chỉ</p>
+                      <p className="font-medium">
+                        {displayClass.tutor_location ? `${displayClass.tutor_location}, ` : ''}
+                        {displayClass.tutor_ward ? `${displayClass.tutor_ward}, ` : ''}
+                        {displayClass.tutor_district ? `${displayClass.tutor_district}, ` : ''}
+                        {displayClass.tutor_province || 'Chưa cập nhật'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -277,23 +386,24 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
             )}
 
             {/* Action buttons */}
-            {currentClass.class_status === 'recruiting' && (
+            {(displayClass.class_status === 'recruiting' ||
+              displayClass.status === 'recruiting') && (
               <div className="mt-6 pt-6 border-t flex gap-2 flex-wrap">
                 <Button
                   className="gap-2 bg-blue-600 hover:bg-blue-700"
-                  onClick={() => handleEditClick(currentClass)}
+                  onClick={() => handleEditClick(displayClass)}
                 >
                   <Edit className="w-4 h-4" />
                   Sửa Thông Tin
                 </Button>
 
-                {currentClass.applied_tutors_count > 0 && (
+                {displayClass.applied_tutors_count > 0 && (
                   <Button
                     className="gap-2 bg-green-600 hover:bg-green-700"
-                    onClick={() => handleViewTutors(currentClass.class_id)}
+                    onClick={() => handleViewTutors(displayClass.class_id)}
                   >
                     <Users className="w-4 h-4" />
-                    Xem Ứng Tuyển ({currentClass.applied_tutors_count})
+                    Xem Ứng Tuyển ({displayClass.applied_tutors_count})
                   </Button>
                 )}
 

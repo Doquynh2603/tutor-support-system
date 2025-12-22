@@ -80,6 +80,23 @@ class ApplicationController {
         applicationDetail
       );
 
+      // 🔒 Privacy Check: Only show student info if application is approved
+      // Note: View_ApplicationDetail uses 'application_status' column, not 'status'
+      if (
+        applicationDetail &&
+        applicationDetail.application_status !== "approved"
+      ) {
+        delete applicationDetail.student_name;
+        delete applicationDetail.student_phone;
+        delete applicationDetail.student_email;
+        delete applicationDetail.student_location; // Hide specific address
+        delete applicationDetail.student_dob;
+        // Keep generic location like district/province if available separately,
+        // but if they are part of student_location, they are gone.
+        // Usually views return ward_name, district_name separately. Let's check if we need to hide those.
+        // Usually district/province is public info for the class location.
+      }
+
       return res.status(200).json({
         success: true,
         message: "Lấy chi tiết đơn ứng tuyển thành công",

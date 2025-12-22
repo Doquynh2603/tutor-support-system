@@ -61,6 +61,17 @@ exports.getTutorClassDetail = async (req, res) => {
 
     console.log(`✅ [getTutorClassDetail] Found class:`, classDetail);
 
+    // 🔒 Privacy Check: Only show student info if class status is allowed
+    // Allowed statuses: has_tutor, active, completed
+    const allowedStatuses = ["has_tutor", "active", "completed"];
+    if (!allowedStatuses.includes(classDetail.status)) {
+      delete classDetail.student_name;
+      delete classDetail.student_phone;
+      delete classDetail.student_email;
+      delete classDetail.student_location;
+      delete classDetail.student_dob;
+    }
+
     res.status(200).json({
       success: true,
       data: classDetail,

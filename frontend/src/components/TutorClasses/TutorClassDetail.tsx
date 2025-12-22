@@ -55,10 +55,11 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
     error: classError,
   } = useTutorClassDetail(classId);
 
-  const { data: studentProfileResponse, isLoading: studentLoading } = useClassStudentProfile(
-    classId,
-    showStudentProfile
-  );
+  const {
+    data: studentProfileResponse,
+    isLoading: studentLoading,
+    error: studentError,
+  } = useClassStudentProfile(classId, showStudentProfile);
 
   const classDetail: ClassDetail | undefined = classDetailResponse;
   const studentProfile = studentProfileResponse;
@@ -70,6 +71,7 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
   console.log('TutorClassDetail - showStudentProfile:', showStudentProfile);
   console.log('TutorClassDetail - studentProfileResponse:', studentProfileResponse);
   console.log('TutorClassDetail - studentLoading:', studentLoading);
+  console.log('TutorClassDetail - studentError:', studentError);
 
   // Render StudentProfileModal khi showStudentProfile = true
   if (showStudentProfile) {
@@ -77,6 +79,7 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
       <StudentProfileModal
         student={studentProfile}
         isLoading={studentLoading}
+        error={studentError}
         onBack={() => setShowStudentProfile(false)}
       />
     );

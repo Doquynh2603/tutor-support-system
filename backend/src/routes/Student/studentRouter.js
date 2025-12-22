@@ -32,7 +32,7 @@ router.get(
 );
 // ⚠️ IMPORTANT: Routes với tham số cụ thể phải đặt TRƯỚC routes có :id parameters
 router.get(
-  "/class/suggested-tutors",
+  "/class/:class_id/suggested-tutors",
   protect,
   roleCheck("student"),
   ClassController.getSuggestedTutors

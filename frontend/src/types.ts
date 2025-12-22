@@ -57,6 +57,7 @@ export type StudentSummary = Pick<
 export interface TutorProfile {
   tutor_id: string;
   introduction?: string;
+  bio?: string; // ✅ Added alias
   experience_years?: number;
   subjects?: string[];
   hourly_rate?: number;
@@ -106,6 +107,8 @@ export interface ClassItem {
   application_status?: string | null;
   hourly_rate?: number;
   hours_per_week?: number;
+  invited_tutors_count?: number; // ✅ Added
+  applied_tutors_count?: number; // ✅ Added
   [key: string]: unknown;
   classLevel?: number | null;
   start_date?: string | null;
@@ -149,6 +152,20 @@ export interface ClassDetail {
   student_email?: string;
   student_phone?: string;
   student_gender?: boolean;
+  // Tutor Info
+  tutor_id?: string;
+  tutor_name?: string;
+  tutor_email?: string;
+  tutor_phone?: string;
+  tutor_location?: string;
+  tutor_ward?: string;
+  tutor_district?: string;
+  tutor_province?: string;
+  tutor_rating?: number;
+  tutor_reviews?: number;
+  tutor_description?: string;
+  tutor_experience_years?: number;
+  tutor_subjects_list?: string[];
 }
 
 export interface TutorClass {
@@ -276,7 +293,7 @@ export interface Application {
   hourly_price?: number;
   province_name?: string | null;
   requirement?: string;
-  responsed_at?: string;
+  response_at?: string; // ✅ Fixed typo from responsed_at
   start_date?: string;
   student_email?: string;
   student_name?: string;

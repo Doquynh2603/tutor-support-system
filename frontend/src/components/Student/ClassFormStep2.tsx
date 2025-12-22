@@ -14,9 +14,10 @@ interface Props {
   onBack: () => void;
   onSubmit: () => void;
   isLoading: boolean;
+  classId: string | null; // ✅ Thêm prop classId
 }
 
-const ClassFormStep2: React.FC<Props> = ({ onBack, onSubmit, isLoading }) => {
+const ClassFormStep2: React.FC<Props> = ({ onBack, onSubmit, isLoading, classId }) => {
   const dispatch = useDispatch();
   const formData = useSelector((state: RootState) => state.classes.formData);
   const suggestedTutors = useSelector((state: RootState) => state.classes.suggestedTutors);
@@ -26,12 +27,12 @@ const ClassFormStep2: React.FC<Props> = ({ onBack, onSubmit, isLoading }) => {
 
   useEffect(() => {
     const fetchTutors = async () => {
-      if (!formData.subject_id) return;
+      if (!classId) return; // ✅ Dùng classId thay vì subject_id
 
       setLoadingTutors(true);
       setError(null);
       try {
-        const data = await classAPI.getSuggestedTutors(formData.subject_id);
+        const data = await classAPI.getSuggestedTutors(classId); // ✅ Gọi API với classId
         dispatch(setSuggestedTutors(data));
       } catch (err: any) {
         setError(err?.response?.data?.message || 'Lỗi khi lấy danh sách gia sư');
@@ -41,7 +42,7 @@ const ClassFormStep2: React.FC<Props> = ({ onBack, onSubmit, isLoading }) => {
     };
 
     fetchTutors();
-  }, [formData.subject_id, dispatch]);
+  }, [classId, dispatch]); // ✅ Dependency là classId
 
   const handleTutorToggle = (tutorId: string) => {
     dispatch(toggleTutorSelection(tutorId));

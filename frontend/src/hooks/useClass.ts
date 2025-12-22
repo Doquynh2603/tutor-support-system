@@ -119,11 +119,11 @@ export const useClass = () => {
   }, []);
 
   // Lấy danh sách gia sư gợi ý
-  const getSuggestedTutors = useCallback(async (subjectId: string) => {
+  const getSuggestedTutors = useCallback(async (classId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await classAPI.getSuggestedTutors(subjectId);
+      const result = await classAPI.getSuggestedTutors(classId);
       setLoading(false);
       return result;
     } catch (err: any) {
