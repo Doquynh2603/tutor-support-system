@@ -1,12 +1,13 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle, Clock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { useProvinces } from '../../hooks/useProvinces';
 import { useSubjects } from '../../hooks/useSubjects';
 import { useSearchClasses } from '@/hooks/useTutorClasses';
 
 import { Subject, Province } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Filters {
   province_id: string;
@@ -31,7 +32,6 @@ export default function SearchPage({ onTabChange }: SearchPageProps) {
     minRate: 0,
     maxRate: 999999,
   });
-
   // ✅ Memoize filters để tránh re-query liên tục
   const memoizedFilters = useMemo(
     () => ({
@@ -93,9 +93,9 @@ export default function SearchPage({ onTabChange }: SearchPageProps) {
     [onTabChange]
   );
 
-  const handleApplyClass = useCallback((classId: string | number) => {
-    console.log('Apply for class:', classId);
-  }, []);
+  // const handleApplyClass = useCallback((classId: string | number) => {
+  //   console.log('Apply for class:', classId);
+  // }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -230,8 +230,14 @@ export default function SearchPage({ onTabChange }: SearchPageProps) {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {classes.map((cls, index) => (
-                  <Card key={cls.class_id || index} className="relative">
+                {classes.map((cls: any) => (
+                  <Card key={cls.class_id} className="relative">
+                    {cls.application_status === 'applied' && (
+                      <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-semibold">Đã ứng tuyển</span>
+                      </div>
+                    )}
                     <CardHeader>
                       <CardTitle>
                         {cls.subject_name}
@@ -252,17 +258,6 @@ export default function SearchPage({ onTabChange }: SearchPageProps) {
                           className="flex-1 bg-blue-600 hover:bg-blue-700"
                         >
                           Xem chi tiết
-                        </Button>
-                        <Button
-                          onClick={() => handleApplyClass(cls.class_id)}
-                          disabled={cls.application_status === 'applied'}
-                          className={`flex-1 ${
-                            cls.application_status === 'applied'
-                              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                              : 'bg-green-600 text-white hover:bg-green-700'
-                          }`}
-                        >
-                          {cls.application_status === 'applied' ? '✓ Đã ứng tuyển' : 'Ứng tuyển'}
                         </Button>
                       </div>
                     </CardContent>

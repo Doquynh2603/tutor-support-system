@@ -151,7 +151,41 @@ export const useClass = () => {
       throw err;
     }
   }, []);
-
+  const getApplicationsByClass = useCallback(async (classId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log(`📥 Fetching applications for class ${classId}`);
+      const result = await classAPI.getApplicationsByClass(classId);
+      console.log('✅ Applications fetched:', result);
+      setLoading(false);
+      return result?.data || result || [];
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message || err.message || 'Lỗi khi lấy danh sách ứng tuyển';
+      setError(errorMsg);
+      console.error('❌ Error fetching applications:', errorMsg);
+      setLoading(false);
+      return [];
+    }
+  }, []);
+  const getTutorDetail = useCallback(async (tutorId: string, classId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log(`📥 Fetching tutor detail: ${tutorId}`);
+      const result = await classAPI.getTutorDetail(tutorId, classId);
+      console.log('✅ Tutor detail fetched:', result);
+      setLoading(false);
+      return result;
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || err.message || 'Lỗi khi lấy chi tiết gia sư';
+      setError(errorMsg);
+      console.error('❌ Error fetching tutor detail:', errorMsg);
+      setLoading(false);
+      throw err;
+    }
+  }, []);
   // Duyệt ứng tuyển
   const reviewApplication = useCallback(
     async (applicationId: string, action: 'approve' | 'reject', rejectionReason?: string) => {
@@ -216,5 +250,7 @@ export const useClass = () => {
     reviewApplication,
     updateClass,
     cancelClass,
+    getTutorDetail,
+    getApplicationsByClass,
   };
 };

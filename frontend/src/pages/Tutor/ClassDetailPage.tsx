@@ -8,6 +8,8 @@ import { ClassDetail } from '@/types';
 import { searchAPI } from '@/services/api';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 dayjs.extend(utc);
 
 // ===============================
@@ -54,6 +56,9 @@ export default function ClassDetailPage({ onTabChange }: ClassDetailPageProps) {
   const queryClient = useQueryClient();
   const classId = sessionStorage.getItem('currentClassId');
   const [showModal, setShowModal] = useState(false);
+  const navigate = useNavigate();
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const user = useSelector((state: RootState) => state.auth.user);
 
   // ======= Fetch Class Detail =======
   const { data: classDetail, isLoading } = useQuery<ClassDetail>({
@@ -64,7 +69,13 @@ export default function ClassDetailPage({ onTabChange }: ClassDetailPageProps) {
     },
     enabled: Boolean(classId),
   });
+  const getApplicationStatus = (): string | null => {
+    const searchData: any = queryClient.getQueryData(['searchClasses']);
+    if (!searchData) return null;
 
+    const classItem = searchData.find((c: any) => c.class_id === classId);
+    return classItem?.application_status || null;
+  };
   // ======= Apply to class =======
   const applyMutation = useMutation<ApplyResponse>({
     mutationFn: async () => {
@@ -84,32 +95,47 @@ export default function ClassDetailPage({ onTabChange }: ClassDetailPageProps) {
     onSuccess: () => {
       console.log('✅ Ứng tuyển thành công!');
 
-      // ✅ THÊM: Update cache SearchClasses - thêm application_status
-      queryClient.invalidateQueries({ queryKey: ['searchClasses'] });
-
-      // ✅ THÊM: Update cache classDetail - thêm application_status
-      queryClient.setQueryData(['classDetail', classId], (oldData: any) => {
-        if (!oldData) return oldData;
-        return { ...oldData, application_status: 'applied' };
+      // ✅ BƯỚC 1: Invalidate cache ngay
+      queryClient.invalidateQueries({
+        queryKey: ['searchClasses'],
       });
 
       alert('Ứng tuyển lớp thành công!');
       setShowModal(false);
 
-      // ✅ SỬA: Quay lại /search sau 1 giây để cache được cập nhật
+      // ✅ BƯỚC 2: Quay lại sau delay (để cache refetch xong)
       setTimeout(() => {
         sessionStorage.removeItem('currentClassId');
         if (onTabChange) {
           console.log('📍 Quay lại tab search');
           onTabChange('search');
         }
-      }, 500);
+      }, 1000); // ✅ 1 giây đủ cho refetch
     },
     onError: (error: any) => {
       alert(`Ứng tuyển lớp thất bại: ${error?.response?.data?.message || 'Lỗi'}`);
     },
   });
+  console.log('📄 classDetail data:', classDetail);
+  const handleApplyButtonClick = () => {
+    // 1. Kiểm tra đăng nhập
+    if (!isAuthenticated) {
+      alert('Vui lòng đăng nhập để ứng tuyển lớp học');
+      navigate('/login', {
+        state: { from: location, classId },
+      });
+      return;
+    }
 
+    // 2. Kiểm tra role
+    if (user?.role !== 'tutor') {
+      alert('Chỉ gia sư mới có thể ứng tuyển lớp học');
+      return;
+    }
+
+    // 3. Hiển thị modal xác nhận
+    setShowModal(true);
+  };
   // ===============================
   // Loading & Not found
   // ===============================
@@ -129,7 +155,7 @@ export default function ClassDetailPage({ onTabChange }: ClassDetailPageProps) {
   // ===============================
   // UI Rendering
   // ===============================
-
+  const applicationStatus = getApplicationStatus();
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -254,17 +280,19 @@ export default function ClassDetailPage({ onTabChange }: ClassDetailPageProps) {
       )}
 
       {/* Apply Button */}
-      <div className="bg-white rounded-lg shadow-lg p-8">
+      <div className="max-w-4xl mx-auto px-4 bg-white rounded-lg shadow-lg p-8">
         <Button
           className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700"
-          onClick={() => setShowModal(true)}
-          disabled={applyMutation.isPending}
+          onClick={handleApplyButtonClick}
+          disabled={applyMutation.isPending || applicationStatus === 'applied'}
         >
           {applyMutation.isPending ? (
             <>
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               Đang xử lý...
             </>
+          ) : applicationStatus === 'applied' ? (
+            '✓ Đã ứng tuyển'
           ) : (
             '✈️ Ứng tuyển lớp này'
           )}

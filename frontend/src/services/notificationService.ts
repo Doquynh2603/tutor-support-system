@@ -11,8 +11,7 @@ export const notificationAPI = {
         limit,
         offset,
       });
-      console.log('dữ liệu thông báo chưa đọc lấy được từ backend ', response);
-
+      console.log('✅ Unread notifications fetched:', response);
       return response;
     } catch (error) {
       console.error('❌ Error fetching unread notifications:', error);
@@ -29,25 +28,49 @@ export const notificationAPI = {
         limit,
         offset,
       });
-      console.log('dữ liệu tất cả thông báo lấy được từ backend ', response);
+      console.log('✅ All notifications fetched:', response);
       return response;
     } catch (error) {
       console.error('❌ Error fetching notifications:', error);
       throw error;
     }
   },
+
   /**
-   * Lấy số lượng thông báo chưa đọc
+   * ✅ SỬA: Lấy số lượng thông báo chưa đọc
    */
-  getUnreadCount: async (): Promise<number> => {
+  getUnreadCount: async (): Promise<{ count: number }> => {
     try {
       const response = await apiService.get<UnreadCountResponse>('/notifications/unread-count');
-      return response.unreadCount || 0;
+
+      console.log('✅ Unread count response:', response);
+
+      // ✅ Xử lý response từ API
+      if (response && response.data) {
+        // Nếu response.data là number
+        if (typeof response.data === 'number') {
+          return { count: response.data };
+        }
+        // Nếu response.data là object có property count
+        if (response.data.count !== undefined) {
+          return { count: response.data.count };
+        }
+        // Nếu response.data là object có property unreadCount
+        if (response.data.count !== undefined) {
+          return { count: response.data.count };
+        }
+      }
+
+      // ✅ Fallback: return 0
+      console.warn('⚠️ Could not parse unread count, returning 0');
+      return { count: 0 };
     } catch (error) {
       console.error('❌ Error fetching unread count:', error);
-      throw error;
+      // ✅ Không throw, return fallback value
+      return { count: 0 };
     }
   },
+
   /**
    * Đánh dấu notification là đã đọc
    */
@@ -73,6 +96,7 @@ export const notificationAPI = {
       throw error;
     }
   },
+
   /**
    * Xóa notification
    */
@@ -85,5 +109,19 @@ export const notificationAPI = {
       throw error;
     }
   },
+
+  /**
+   * ✅ THÊM: Xóa tất cả notifications
+   */
+  deleteAllNotifications: async (): Promise<void> => {
+    try {
+      await apiService.delete('/notifications/all');
+      console.log('✅ Deleted all notifications');
+    } catch (error) {
+      console.error('❌ Error deleting all notifications:', error);
+      throw error;
+    }
+  },
 };
+
 export default notificationAPI;

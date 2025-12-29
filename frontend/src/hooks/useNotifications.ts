@@ -19,10 +19,13 @@ export const useNotifications = () => {
   const { notifications, unreadCount, isLoading, error } = useSelector(
     (state: RootState) => state.notification
   );
-  const fetchAll = useCallback(() => {
+  const fetchAll = useCallback(async () => {
     console.log('📥 [Hook] Fetching all notifications');
-    dispatch(fetchAllNotifications());
+    const result = await dispatch(fetchAllNotifications());
+    console.log('✅ [Hook] fetchAll completed:', result.payload);
+    return result.payload;
   }, [dispatch]);
+
   /**
    * Fetch unread notifications
    */
@@ -33,8 +36,11 @@ export const useNotifications = () => {
   /**
    * Fetch unread count
    */
-  const fetchCount = useCallback(() => {
-    dispatch(fetchUnreadCount());
+  const fetchCount = useCallback(async () => {
+    console.log('📥 [Hook] Fetching unread count');
+    const result = await dispatch(fetchUnreadCount());
+    console.log('✅ [Hook] fetchCount completed:', result.payload);
+    return result.payload;
   }, [dispatch]);
 
   /**

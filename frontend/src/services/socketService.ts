@@ -23,7 +23,21 @@ class SocketService {
    * @returns Socket instance
    */
   connect(token?: string, userId?: string, userRole?: string) {
-    if (!this.socket) {
+    try {
+      // ✅ Check if already connected
+      if (this.socket?.connected) {
+        console.log('✅ [SocketService] Socket already connected');
+        return this.socket;
+      }
+
+      console.log(`🔌 [SocketService] Connecting to ${SOCKET_URL}`);
+      console.log(`   UserId: ${userId}`);
+
+      // ✅ Disconnect old socket if exists
+      if (this.socket) {
+        this.socket.disconnect();
+      }
+
       this.socket = io(SOCKET_URL, {
         auth: {
           token: token || localStorage.getItem('token'),
@@ -34,11 +48,15 @@ class SocketService {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
+        transports: ['websocket', 'polling'],
       });
 
       this.setupListeners();
+      return this.socket;
+    } catch (error) {
+      console.error('❌ [SocketService] Error connecting:', error);
+      throw error;
     }
-    return this.socket;
   }
   private setupListeners() {
     if (!this.socket) return;
@@ -77,18 +95,41 @@ class SocketService {
   /**
    * ✅ NEW: Lắng nghe thông báo mới
    */
-  onNewNotification(callback: (data: any) => void) {
+  onNotification(callback: (data: any) => void) {
+    if (!this.socket) {
+      console.error('❌ Socket not connected');
+      return;
+    }
+
+    this.socket.on('notification', (data) => {
+      console.log('📬 [socketService] Notification received:', data.type);
+      callback(data);
+    });
+  }
+  onPingNotification(callback: (data: any) => void) {
     if (!this.socket) {
       console.error('❌ Socket not connected');
       return;
     }
 
     this.socket.on('notification:new', (data) => {
-      console.log('📬 New notification received:', data);
+      console.log('📡 Ping notification received:', data);
       callback(data);
     });
   }
 
+  // ✅ NEW: Lắng nghe FULL notification (alternative)
+  onFullNotification(callback: (data: any) => void) {
+    if (!this.socket) {
+      console.error('❌ Socket not connected');
+      return;
+    }
+
+    this.socket.on('notification:full', (data) => {
+      console.log('📬 Full notification received:', data);
+      callback(data);
+    });
+  }
   /**
    * ✅ NEW: Emit notification read event
    */
@@ -120,9 +161,11 @@ class SocketService {
   /**
    * ✅ NEW: Remove notification listener
    */
-  removeNotificationListener() {
+  removeNotificationListeners() {
     if (this.socket) {
+      this.socket.off('notification');
       this.socket.off('notification:new');
+      this.socket.off('notification:full');
     }
   }
 

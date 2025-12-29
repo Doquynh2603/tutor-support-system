@@ -2,11 +2,17 @@
   "name": "tutor-support-system-backend",
   "version": "1.0.0",
   "description": "Backend cho hệ thống hỗ trợ gia sư",
-  "main": "src/server.js",
+  "main": "dist/server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "npm run build && node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "dev:watch": "concurrently \"npm run watch\" \"nodemon --exec 'node' dist/server.js\"",
+    "watch": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts"
   },
   "keywords": [
     "tutor",
@@ -27,15 +33,12 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.1.0",
     "express-validator": "^7.2.1",
-    "fs": "^0.0.1-security",
     "helmet": "^7.2.0",
-    "http": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
     "morgan": "^1.10.0",
     "mssql": "^10.0.4",
     "multer": "^2.0.2",
-    "path": "^0.12.7",
     "redis": "^5.10.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
@@ -45,6 +48,17 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/mssql": "^9.1.8",
+    "@types/node": "^25.0.3",
+    "@types/sequelize": "^4.28.20",
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

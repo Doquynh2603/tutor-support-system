@@ -120,22 +120,32 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 space-y-6">
+    <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div>
+        <div className="mb-4">
           <h1 className="text-3xl font-bold">{classDetail.subject_name}</h1>
           <p className="text-muted-foreground mt-1">Chi tiết lớp học</p>
         </div>
-        <Button onClick={onBack} variant="outline" size="lg">
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Quay Lại
-        </Button>
+        <div className="flex gap-3 justify-end">
+          <Button onClick={onBack} variant="outline" size="lg">
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Quay Lại
+          </Button>
+          <Button
+            onClick={() => setShowStudentProfile(true)}
+            size="lg"
+            variant="default"
+          >
+            <User className="h-4 w-4 mr-2" />
+            Xem Thông Tin Học Viên
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Thông tin lớp học */}
-        <Card>
+        <Card className="h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
@@ -197,50 +207,36 @@ const TutorClassDetail: React.FC<TutorClassDetailProps> = ({ classId, onBack }) 
           </CardContent>
         </Card>
 
-        {/* Thông tin học viên */}
-        <Card>
+        {/* Địa chỉ */}
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Địa Chỉ
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
-            <Button
-              onClick={() => setShowStudentProfile(true)}
-              className="w-full mt-6"
-              variant="default"
-            >
-              <User className="h-4 w-4 mr-2" />
-              Xem Thông Tin Học Viên
-            </Button>
+            <div>
+              <label className="text-sm text-muted-foreground">Tỉnh/Thành phố</label>
+              <p className="font-semibold">{classDetail.province_name}</p>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Quận/Huyện</label>
+              <p className="font-semibold">{classDetail.district_name}</p>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Xã</label>
+              <p className="font-semibold">{classDetail.ward_name}</p>
+            </div>
+            {classDetail.locationDetail && (
+              <div>
+                <label className="text-sm text-muted-foreground">Chi tiết địa chỉ</label>
+                <p className="font-semibold">{classDetail.locationDetail}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Địa chỉ */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Địa Chỉ
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div>
-            <label className="text-sm text-muted-foreground">Tỉnh/Thành phố</label>
-            <p className="font-semibold">{classDetail.province_name}</p>
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground">Quận/Huyện</label>
-            <p className="font-semibold">{classDetail.district_name}</p>
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground">Xã</label>
-            <p className="font-semibold">{classDetail.ward_name}</p>
-          </div>
-          {classDetail.locationDetail && (
-            <div>
-              <label className="text-sm text-muted-foreground">Chi tiết địa chỉ</label>
-              <p className="font-semibold">{classDetail.locationDetail}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Lịch học */}
       <Card>

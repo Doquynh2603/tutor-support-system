@@ -34,6 +34,7 @@ import CreateClassPage from '../components/Student/CreateClassPage';
 import ManageClassesPage from './Student/ManageClassesPage';
 import FavoritesPage from './Student/FavoritesPage';
 import ClassDetailPage from './Tutor/ClassDetailPage';
+import ViewTutorsPage from './Student/ViewTutorsPage';
 
 type TabType =
   | 'dashboard'
@@ -45,7 +46,8 @@ type TabType =
   | 'create-class'
   | 'my-classes'
   | 'favorites'
-  | 'class-detail';
+  | 'class-detail'
+  | 'view-tutors';
 
 export default function HomePage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,7 +55,7 @@ export default function HomePage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<TabType>(tabParam || 'dashboard');
 
   const user = useSelector((state: RootState) => state.auth.user);
-
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   useEffect(() => {
     if (tabParam) {
       setActiveTab(tabParam);
@@ -62,6 +64,7 @@ export default function HomePage(): JSX.Element {
   React.useEffect(() => {
     console.log('📊 activeTab changed:', activeTab);
   }, [activeTab]);
+
   const handleTabChange = (tab: string) => {
     console.log('📌 handleTabChange called:', tab);
     const newTab = tab as TabType;
@@ -96,8 +99,30 @@ export default function HomePage(): JSX.Element {
         return <NotificationsSection />;
       case 'class-detail':
         return <ClassDetailPage onTabChange={handleTabChange} />;
+      case 'view-tutors':
+        return <ViewTutorsPage onTabChange={handleTabChange} />;
       case 'dashboard':
       default:
+        if (!isAuthenticated) {
+          return (
+            <div>
+              <h2 className="text-4xl font-bold mb-8 text-gray-800">
+                Chào mừng đến Tutor Support System
+              </h2>
+              <div className="bg-white rounded-lg p-6 shadow">
+                <p className="text-gray-600 mb-6">
+                  Hãy đăng nhập để truy cập đầy đủ các tính năng của hệ thống
+                </p>
+                <button
+                  onClick={() => (window.location.href = '/login')}
+                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Đăng nhập
+                </button>
+              </div>
+            </div>
+          );
+        }
         return (
           <div>
             <h2 className="text-4xl font-bold mb-8 text-gray-800">Chào mừng đến TSS</h2>

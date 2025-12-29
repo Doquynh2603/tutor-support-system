@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Calendar, Loader } from 'lucide-react';
 import { useApplications, Application, TutorDetailForApproval } from '@/hooks/useApplications';
 import ApplicationTutorCard from '@/components/Student/ApplicationTutorCard';
 import TutorDetailModal from '@/components/Student/TutorDetailModal';
-import { log } from 'console';
 
-const ViewTutorsPage: React.FC = () => {
+interface ViewTutorsPageProps {
+  onTabChange?: (tab: string) => void; // ✅ THÊM
+}
+const ViewTutorsPage: React.FC<ViewTutorsPageProps> = ({ onTabChange }) => {
   const classId = sessionStorage.getItem('currentClassId');
-  const navigate = useNavigate();
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [filteredApplications, setFilteredApplications] = useState<Application[]>([]);
@@ -33,7 +34,7 @@ const ViewTutorsPage: React.FC = () => {
       try {
         if (!classId) {
           alert('❌ Không tìm thấy ID lớp học');
-          navigate(-1);
+          handleBackToClasses();
           return;
         }
         const data = await getApplicationsByClass(classId);
@@ -46,8 +47,13 @@ const ViewTutorsPage: React.FC = () => {
     };
 
     fetchApplications();
-  }, [classId, navigate]);
-
+  }, [classId]);
+  const handleBackToClasses = () => {
+    sessionStorage.removeItem('currentClassId');
+    if (onTabChange) {
+      onTabChange('my-classes');
+    }
+  };
   // ✅ Lọc lịch trùng
   const handleFilterSchedule = () => {
     if (showScheduleFilter) {
@@ -160,7 +166,7 @@ const ViewTutorsPage: React.FC = () => {
         {/* ========== HEADER ========== */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleBackToClasses}
             className="text-blue-600 hover:text-blue-800 mb-2 flex items-center gap-1 text-sm font-medium"
           >
             Quay lại
@@ -215,7 +221,7 @@ const ViewTutorsPage: React.FC = () => {
                 : '🔍 Không có gia sư có lịch phù hợp'}
             </p>
             <button
-              onClick={() => navigate(-1)}
+              onClick={handleBackToClasses}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
             >
               Quay lại

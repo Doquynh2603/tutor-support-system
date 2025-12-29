@@ -1,65 +1,44 @@
 import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import socketService from '../services/socketService';
-import { useNotifications } from './useNotifications';
-import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { addNotificationFromSocket } from '@/store/slices/notificationSlice';
 
+/**
+ * ✅ Hook này chỉ để subscribe component vào notification updates
+ * Global listeners đã được setup ở main.tsx
+ */
 export const useNotificationListener = () => {
-  const { addNotification } = useNotifications();
-
-  // ✅ Kiểm tra xem user đã authenticated chưa
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
 
   useEffect(() => {
-    // ✅ Chỉ setup listener nếu user đã authenticated
-    if (!isAuthenticated || !user) {
-      console.log('⏳ Waiting for authentication...');
+    if (!user?.user_id) {
+      console.log('⏳ [Hook] No user');
       return;
     }
 
-    console.log(`🔌 [Notification] Setting up for user: ${user.user_id}`);
+    const socket = socketService.getSocket();
 
-    // ✅ Lấy socket instance
-    let socket = socketService.getSocket();
-    if (!socket) {
-      console.log('🔌 [Notification] Connecting socket...');
-      socket = socketService.connect(localStorage.getItem('token') || '', user.user_id, user.role);
+    if (!socket?.connected) {
+      console.log('⏳ [Hook] Socket not connected yet');
+      return;
     }
-    const handleConnect = () => {
-      console.log('✅ [Notification] Socket connected:', socket?.id);
 
-      // ✅ QUAN TRỌNG: Emit authenticate event
-      socket?.emit('authenticate', user.user_id);
-      console.log(`📍 [Notification] Sent authenticate for user: ${user.user_id}`);
+    console.log(`✅ [Hook] Subscribing to notifications for ${user.user_id}`);
 
-      // ✅ Lắng nghe notification event
-      socket?.on('notification', (data) => {
-        console.log('📬 [Notification] Received:', {
-          type: data.type,
-          title: data.title,
-          created_at: data.created_at,
-          receiver_id: data.receiver_id,
-        });
-
-        addNotification(data);
-      });
+    // ✅ Subscribe to notification events
+    const handleNotification = (data: any) => {
+      console.log('📬 [Hook] Notification received:', data.type);
+      dispatch(addNotificationFromSocket(data));
     };
 
-    if (socket.connected) {
-      // Socket already connected, authenticate immediately
-      handleConnect();
-    } else {
-      // Wait for connection
-      socket.once('connect', handleConnect);
-    }
+    socket.on('notification', handleNotification);
 
-    // Cleanup
     return () => {
-      socket?.off('connect', handleConnect);
-      socket?.off('notification');
+      socket.off('notification', handleNotification);
     };
-  }, [isAuthenticated, user?.user_id, addNotification]);
+  }, [user?.user_id, dispatch]);
 };
 
 export default useNotificationListener;

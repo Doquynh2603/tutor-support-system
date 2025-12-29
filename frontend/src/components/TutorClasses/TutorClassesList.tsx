@@ -84,13 +84,15 @@ const TutorClassesList: React.FC = () => {
         onValueChange={(v) => setActiveTab(v as typeof activeTab)}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="recruiting">Đang Tuyển</TabsTrigger>
-          <TabsTrigger value="has_tutor">Đã có gia sư</TabsTrigger>
-          <TabsTrigger value="in_progress">Lớp Đang Dạy</TabsTrigger>
-          <TabsTrigger value="completed">Đã hoàn thành</TabsTrigger>
-          <TabsTrigger value="cancelled">Đã hủy</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex w-full">
+            <TabsTrigger value="recruiting">Đang Tuyển</TabsTrigger>
+            <TabsTrigger value="has_tutor">Đã có gia sư</TabsTrigger>
+            <TabsTrigger value="in_progress">Lớp Đang Dạy</TabsTrigger>
+            <TabsTrigger value="completed">Đã hoàn thành</TabsTrigger>
+            <TabsTrigger value="cancelled">Đã hủy</TabsTrigger>
+          </TabsList>
+        </div>
 
         {(['recruiting', 'has_tutor', 'in_progress', 'completed', 'cancelled'] as const).map(
           (status) => (

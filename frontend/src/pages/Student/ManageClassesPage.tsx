@@ -168,8 +168,13 @@ const ManageClassesPage: React.FC<ManageClassesPageProps> = ({ onTabChange }) =>
 
   // ✅ THÊM: Xem ứng tuyển
   const handleViewTutors = (classId: string) => {
+    console.log('📍 Saving classId to sessionStorage:', classId);
+    sessionStorage.setItem('currentClassId', classId);
     setSelectedClassId(classId);
     setViewMode('tutors');
+    if (onTabChange) {
+      onTabChange('view-tutors');
+    }
   };
 
   // ✅ THÊM: Quay lại danh sách

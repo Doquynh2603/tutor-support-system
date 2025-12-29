@@ -6,7 +6,6 @@ import {
   selectAuthLoading,
   selectUser,
 } from '../store/slices/authSlice-real';
-import { log } from 'console';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -18,8 +17,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   const loading = useSelector(selectAuthLoading);
   const user = useSelector(selectUser);
   const location = useLocation();
-  console.log('ProtectedRoute render:', user);
-  if (loading || (isAuthenticated && !user)) {
+  console.log('ProtectedRoute render:', { user, isAuthenticated });
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin h-8 w-8 rounded-full border-b-2 border-blue-600"></div>
@@ -27,7 +26,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
       </div>
     );
   }
-
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />;
 
   if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role!)) {

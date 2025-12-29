@@ -33,6 +33,13 @@ export const classAPI = {
   getClassDetails: (classId: string) => apiService.get(`/student/class/${classId}`),
   getSuggestedTutors: (classId: string) =>
     apiService.get(`/student/class/${classId}/suggested-tutors`),
+  getApplicationsByClass: (classId: string) =>
+    apiService.get(`/student/class/${classId}/applications`),
+
+  // ✅ THÊM: Lấy chi tiết gia sư
+  getTutorDetail: (tutorId: string, classId: string) =>
+    apiService.post(`/student/tutor/${tutorId}/detail`, { class_id: classId }),
+
   inviteTutor: (classId: string, tutorUserId: string) =>
     apiService.post(`/student/class/${classId}/invite`, { tutor_id: tutorUserId }),
   approveApplication: (classId: string, applicationId: string) =>
