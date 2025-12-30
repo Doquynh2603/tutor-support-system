@@ -56,7 +56,7 @@ const AppContent: React.FC = () => {
           <Route
             path="/"
             element={
-              <ProtectedRoute allowedRoles={['tutor']}>
+              <ProtectedRoute>
                 <HomePage />
               </ProtectedRoute>
             }

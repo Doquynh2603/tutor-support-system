@@ -87,7 +87,7 @@ const io = new SocketIOServer(server, {
   },
 });
 
-app.locals.io = io;
+// app.locals.io = io;
 socketEmitter.setIO(io);
 console.log("✅ SocketEmitter initialized with io instance");
 
